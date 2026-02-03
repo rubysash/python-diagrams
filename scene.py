@@ -2,7 +2,9 @@ from PyQt5.QtWidgets import QGraphicsScene, QInputDialog
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 
-from shapes import DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText
+from shapes import (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, 
+                    DiagramTriangleInverted, DiagramTriangleLeft, DiagramTriangleRight,
+                    DiagramText)
 from arrows import Arrow
 from handles import ResizeHandle
 
@@ -19,6 +21,9 @@ class DiagramScene(QGraphicsScene):
     MODE_OVAL = "Oval"
     MODE_DIAMOND = "Diamond"
     MODE_TRIANGLE = "Triangle"
+    MODE_TRIANGLE_INVERTED = "Triangle Inverted"
+    MODE_TRIANGLE_LEFT = "Triangle Left"
+    MODE_TRIANGLE_RIGHT = "Triangle Right"
     MODE_TEXT = "Text"
     MODE_ARROW = "Arrow"
     MODE_ARROW_BIDIR = "Two-Way"
@@ -108,12 +113,17 @@ class DiagramScene(QGraphicsScene):
     def get_shape_at(self, pos):
         items = self.items(pos)
         for item in items:
-            # Direct check for diagram shapes
-            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText)):
+            # Direct check for diagram shapes (including new triangle types)
+            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, 
+                                 DiagramTriangle, DiagramTriangleInverted,
+                                 DiagramTriangleLeft, DiagramTriangleRight,
+                                 DiagramText)):
                 return item
             # Check if clicking on a child item (like a label) - return the parent shape
             parent = item.parentItem()
-            if parent and isinstance(parent, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle)):
+            if parent and isinstance(parent, (DiagramRect, DiagramOval, DiagramDiamond, 
+                                              DiagramTriangle, DiagramTriangleInverted,
+                                              DiagramTriangleLeft, DiagramTriangleRight)):
                 return parent
         return None
     
@@ -156,6 +166,12 @@ class DiagramScene(QGraphicsScene):
             return DiagramDiamond(x, y, color=color)
         elif self.current_mode == self.MODE_TRIANGLE:
             return DiagramTriangle(x, y, color=color)
+        elif self.current_mode == self.MODE_TRIANGLE_INVERTED:
+            return DiagramTriangleInverted(x, y, color=color)
+        elif self.current_mode == self.MODE_TRIANGLE_LEFT:
+            return DiagramTriangleLeft(x, y, color=color)
+        elif self.current_mode == self.MODE_TRIANGLE_RIGHT:
+            return DiagramTriangleRight(x, y, color=color)
         elif self.current_mode == self.MODE_TEXT:
             return DiagramText(
                 x, y, 
@@ -236,7 +252,7 @@ class DiagramScene(QGraphicsScene):
         if isinstance(shape, DiagramText):
             current_text = shape.get_text()
         elif hasattr(shape, 'label') and shape.label:
-            current_text = shape.label.text()
+            current_text = shape.label.toPlainText()
         text, ok = QInputDialog.getText(None, "Label", "Enter text:", text=current_text)
         if ok and text:
             # Set label color before adding label
@@ -256,7 +272,7 @@ class DiagramScene(QGraphicsScene):
     def _add_label_to_arrow(self, arrow):
         current_text = ""
         if hasattr(arrow, 'label') and arrow.label:
-            current_text = arrow.label.text()
+            current_text = arrow.label.toPlainText()
         text, ok = QInputDialog.getText(None, "Arrow Label", "Enter label:", text=current_text)
         if ok and text:
             # Set label color before adding label

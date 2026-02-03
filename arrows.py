@@ -1,5 +1,5 @@
 import math
-from PyQt5.QtWidgets import QGraphicsLineItem, QGraphicsPolygonItem, QGraphicsSimpleTextItem
+from PyQt5.QtWidgets import QGraphicsLineItem, QGraphicsPolygonItem, QGraphicsTextItem
 from PyQt5.QtCore import Qt, QPointF, QLineF
 from PyQt5.QtGui import QPen, QBrush, QColor, QPolygonF, QFont
 
@@ -60,7 +60,7 @@ class Arrow(QGraphicsLineItem):
         """Set the label color."""
         self.label_color = QColor(color)
         if self.label:
-            self.label.setBrush(QBrush(self.label_color))
+            self.label.setDefaultTextColor(self.label_color)
     
     def get_label_color(self):
         """Get the current label color."""
@@ -70,7 +70,7 @@ class Arrow(QGraphicsLineItem):
         """Set the font size for the label."""
         self.label_font_size = size
         if self.label:
-            font = QFont("Arial")
+            font = self.label.font()
             font.setPointSize(size)
             self.label.setFont(font)
             self.center_label()
@@ -81,12 +81,12 @@ class Arrow(QGraphicsLineItem):
     
     def add_label(self, text):
         if self.label:
-            self.label.setText(text)
+            self.label.setPlainText(text)
         else:
-            self.label = QGraphicsSimpleTextItem(text, self)
-            self.label.setBrush(QBrush(self.label_color))
-        # Apply font with explicit family for consistent SVG rendering
-        font = QFont("Arial")
+            self.label = QGraphicsTextItem(text, self)
+            self.label.setDefaultTextColor(self.label_color)
+        # Apply font size
+        font = QFont()
         font.setPointSize(self.label_font_size)
         self.label.setFont(font)
         self.center_label()

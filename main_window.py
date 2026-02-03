@@ -60,11 +60,44 @@ def draw_diamond(painter, size):
 
 
 def draw_triangle(painter, size):
-    """Draw triangle icon."""
+    """Draw triangle icon (pointing up)."""
     from PyQt5.QtCore import QPointF
     points = QPolygonF([
         QPointF(12, 4),
         QPointF(20, 20),
+        QPointF(4, 20)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_inverted(painter, size):
+    """Draw inverted triangle icon (pointing down)."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(4, 4),
+        QPointF(20, 4),
+        QPointF(12, 20)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_left(painter, size):
+    """Draw left-facing triangle icon (pointing left)."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(20, 4),
+        QPointF(20, 20),
+        QPointF(4, 12)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_right(painter, size):
+    """Draw right-facing triangle icon (pointing right)."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(4, 4),
+        QPointF(20, 12),
         QPointF(4, 20)
     ])
     painter.drawPolygon(points)
@@ -194,7 +227,10 @@ class MainWindow(QMainWindow):
             (DiagramScene.MODE_RECTANGLE, "Rectangle", draw_rectangle),
             (DiagramScene.MODE_OVAL, "Oval", draw_oval),
             (DiagramScene.MODE_DIAMOND, "Diamond", draw_diamond),
-            (DiagramScene.MODE_TRIANGLE, "Triangle", draw_triangle),
+            (DiagramScene.MODE_TRIANGLE, "Triangle (Up)", draw_triangle),
+            (DiagramScene.MODE_TRIANGLE_INVERTED, "Triangle (Down)", draw_triangle_inverted),
+            (DiagramScene.MODE_TRIANGLE_LEFT, "Triangle (Left)", draw_triangle_left),
+            (DiagramScene.MODE_TRIANGLE_RIGHT, "Triangle (Right)", draw_triangle_right),
             (DiagramScene.MODE_TEXT, "Text Label", draw_text),
         ]
         

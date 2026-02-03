@@ -23,6 +23,19 @@ scripts\activate
 python main.py
 ```
 
+## Available Shapes
+
+| Shape | Description | Default Color |
+|-------|-------------|---------------|
+| Rectangle | Standard rectangle | Blue (#3498db) |
+| Oval | Ellipse/circle | Green (#2ecc71) |
+| Diamond | Decision node | Red (#e74c3c) |
+| Triangle (Up) | Pointing upward | Purple (#9b59b6) |
+| Triangle (Down) | Inverted, pointing downward | Orange (#e67e22) |
+| Triangle (Left) | Pointing left | Teal (#1abc9c) |
+| Triangle (Right) | Pointing right | Blue (#3498db) |
+| Text | Free-form text label | Dark gray (#333333) |
+
 ## Controls
 
 | Action | How |

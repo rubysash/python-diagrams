@@ -1,10 +1,12 @@
 import json
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication
 from PyQt5.QtCore import QRectF, QSize
 from PyQt5.QtGui import QPainter, QImage, QColor
 from PyQt5.QtSvg import QSvgGenerator
 
-from shapes import DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText
+from shapes import (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle,
+                    DiagramTriangleInverted, DiagramTriangleLeft, DiagramTriangleRight,
+                    DiagramText)
 from arrows import Arrow
 
 
@@ -39,7 +41,9 @@ class ExportManager:
         
         # Serialize shapes
         for item in self.scene.items():
-            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle)):
+            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, 
+                                 DiagramTriangle, DiagramTriangleInverted,
+                                 DiagramTriangleLeft, DiagramTriangleRight)):
                 shape_data = {
                     'id': shape_id,
                     'type': item.__class__.__name__,
@@ -48,7 +52,7 @@ class ExportManager:
                     'width': item.shape_width,
                     'height': item.shape_height,
                     'color': item.shape_color.name(),
-                    'label': item.label.text() if item.label else None,
+                    'label': item.label.toPlainText() if item.label else None,
                     'label_color': item.label_color.name() if hasattr(item, 'label_color') else '#ffffff',
                     'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 14,
                     'z': item.zValue()
@@ -84,7 +88,7 @@ class ExportManager:
                         'end_id': shape_ids[item.end_shape],
                         'bidirectional': item.bidirectional,
                         'color': item.arrow_color.name(),
-                        'label': item.label.text() if item.label else None,
+                        'label': item.label.toPlainText() if item.label else None,
                         'label_color': item.label_color.name() if hasattr(item, 'label_color') else '#333333',
                         'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 9
                     }
@@ -134,6 +138,27 @@ class ExportManager:
                     width=shape_data.get('width', 100),
                     height=shape_data.get('height', 80),
                     color=shape_data.get('color', '#9b59b6')
+                )
+            elif shape_type == 'DiagramTriangleInverted':
+                shape = DiagramTriangleInverted(
+                    x, y,
+                    width=shape_data.get('width', 100),
+                    height=shape_data.get('height', 80),
+                    color=shape_data.get('color', '#e67e22')
+                )
+            elif shape_type == 'DiagramTriangleLeft':
+                shape = DiagramTriangleLeft(
+                    x, y,
+                    width=shape_data.get('width', 80),
+                    height=shape_data.get('height', 100),
+                    color=shape_data.get('color', '#1abc9c')
+                )
+            elif shape_type == 'DiagramTriangleRight':
+                shape = DiagramTriangleRight(
+                    x, y,
+                    width=shape_data.get('width', 80),
+                    height=shape_data.get('height', 100),
+                    color=shape_data.get('color', '#3498db')
                 )
             elif shape_type == 'DiagramText':
                 shape = DiagramText(
@@ -197,7 +222,9 @@ class ExportManager:
         """Export scene to JSON file."""
         items = [item for item in self.scene.items() 
                  if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, 
-                                      DiagramTriangle, DiagramText, Arrow))]
+                                      DiagramTriangle, DiagramTriangleInverted,
+                                      DiagramTriangleLeft, DiagramTriangleRight,
+                                      DiagramText, Arrow))]
         if not items:
             QMessageBox.warning(parent, "Export", "Nothing to export!")
             return False
@@ -263,18 +290,18 @@ class ExportManager:
         
         self.scene.clearSelection()
         
-        # Use same scaling approach as PNG for consistent rendering
-        scale = self.PNG_SCALE
-        width = int(export_rect.width() * scale)
-        height = int(export_rect.height() * scale)
+        width = int(export_rect.width())
+        height = int(export_rect.height())
+        
+        # Get screen DPI to match font metrics with display
+        screen = QApplication.primaryScreen()
+        dpi = screen.logicalDotsPerInch() if screen else 96
         
         generator = QSvgGenerator()
         generator.setFileName(filepath)
         generator.setSize(QSize(width, height))
-        # ViewBox in original coordinates - SVG viewers will scale properly
-        generator.setViewBox(QRectF(0, 0, export_rect.width(), export_rect.height()))
-        # Use 90 DPI - the SVG standard that matches Qt's internal calculations
-        generator.setResolution(90)
+        generator.setViewBox(QRectF(0, 0, width, height))
+        generator.setResolution(int(dpi))  # Match screen DPI for consistent fonts
         generator.setTitle("Diagram Export")
         generator.setDescription("Created with Diagram Builder")
         
@@ -284,10 +311,9 @@ class ExportManager:
         painter.setRenderHint(QPainter.TextAntialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
         
-        painter.fillRect(QRectF(0, 0, export_rect.width(), export_rect.height()), QColor("#f9f9f9"))
+        painter.fillRect(QRectF(0, 0, width, height), QColor("#f9f9f9"))
         
-        # Render using original coordinates (matching viewBox)
-        target_rect = QRectF(0, 0, export_rect.width(), export_rect.height())
+        target_rect = QRectF(0, 0, width, height)
         self.scene.render(painter, target_rect, export_rect)
         
         painter.end()

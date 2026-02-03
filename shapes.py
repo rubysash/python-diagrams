@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsEllipseItem, 
-                             QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsSimpleTextItem, QGraphicsItem)
+                             QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsItem)
 from PyQt5.QtCore import Qt, QPointF, QRectF
 from PyQt5.QtGui import QPolygonF, QColor, QPen, QBrush, QFont
 
@@ -60,7 +60,7 @@ class BaseShape:
     def set_label_color(self, color):
         self.label_color = QColor(color)
         if self.label:
-            self.label.setBrush(QBrush(self.label_color))
+            self.label.setDefaultTextColor(self.label_color)
     
     def get_label_color(self):
         return self.label_color
@@ -69,7 +69,7 @@ class BaseShape:
         """Set the font size for the label."""
         self.label_font_size = size
         if self.label:
-            font = QFont("Arial")
+            font = self.label.font()
             font.setPointSize(size)
             self.label.setFont(font)
             self.center_label()
@@ -80,12 +80,12 @@ class BaseShape:
     
     def add_label(self, text):
         if self.label:
-            self.label.setText(text)
+            self.label.setPlainText(text)
         else:
-            self.label = QGraphicsSimpleTextItem(text, self)
-            self.label.setBrush(QBrush(self.label_color))
-        # Apply font with explicit family for consistent SVG rendering
-        font = QFont("Arial")
+            self.label = QGraphicsTextItem(text, self)
+            self.label.setDefaultTextColor(self.label_color)
+        # Apply font size
+        font = QFont()
         font.setPointSize(self.label_font_size)
         self.label.setFont(font)
         self.center_label()
@@ -294,7 +294,7 @@ class DiagramDiamond(QGraphicsPolygonItem, BaseShape):
 
 
 class DiagramTriangle(QGraphicsPolygonItem, BaseShape):
-    """Triangle shape."""
+    """Triangle shape (pointing up)."""
     
     def __init__(self, x, y, width=100, height=80, color="#9b59b6"):
         self._width = width
@@ -311,6 +311,168 @@ class DiagramTriangle(QGraphicsPolygonItem, BaseShape):
         return QPolygonF([
             QPointF(width / 2, 0),
             QPointF(width, height),
+            QPointF(0, height)
+        ])
+    
+    def handle_resize(self, handle_pos, new_pos):
+        if not self._resizing:
+            return
+        rect = self.boundingRect()
+        
+        if handle_pos == ResizeHandle.TOP_LEFT:
+            new_rect = QRectF(new_pos, rect.bottomRight())
+        elif handle_pos == ResizeHandle.TOP_RIGHT:
+            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                             QPointF(new_pos.x(), rect.bottom()))
+        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                             QPointF(rect.right(), new_pos.y()))
+        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+            new_rect = QRectF(rect.topLeft(), new_pos)
+        
+        new_rect = new_rect.normalized()
+        
+        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+            self._width = new_rect.width()
+            self._height = new_rect.height()
+            self.shape_width = self._width
+            self.shape_height = self._height
+            
+            new_poly = self._create_polygon(self._width, self._height)
+            offset = new_rect.topLeft()
+            translated_poly = QPolygonF([p + offset for p in new_poly])
+            self.setPolygon(translated_poly)
+            
+            self.center_label()
+            self.update_arrows()
+
+
+class DiagramTriangleInverted(QGraphicsPolygonItem, BaseShape):
+    """Inverted triangle shape (pointing down)."""
+    
+    def __init__(self, x, y, width=100, height=80, color="#e67e22"):
+        self._width = width
+        self._height = height
+        poly = self._create_polygon(width, height)
+        super().__init__(poly)
+        self.init_shape(x, y, width, height, color)
+    
+    def itemChange(self, change, value):
+        self._on_item_change(change, value)
+        return super().itemChange(change, value)
+    
+    def _create_polygon(self, width, height):
+        return QPolygonF([
+            QPointF(0, 0),
+            QPointF(width, 0),
+            QPointF(width / 2, height)
+        ])
+    
+    def handle_resize(self, handle_pos, new_pos):
+        if not self._resizing:
+            return
+        rect = self.boundingRect()
+        
+        if handle_pos == ResizeHandle.TOP_LEFT:
+            new_rect = QRectF(new_pos, rect.bottomRight())
+        elif handle_pos == ResizeHandle.TOP_RIGHT:
+            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                             QPointF(new_pos.x(), rect.bottom()))
+        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                             QPointF(rect.right(), new_pos.y()))
+        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+            new_rect = QRectF(rect.topLeft(), new_pos)
+        
+        new_rect = new_rect.normalized()
+        
+        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+            self._width = new_rect.width()
+            self._height = new_rect.height()
+            self.shape_width = self._width
+            self.shape_height = self._height
+            
+            new_poly = self._create_polygon(self._width, self._height)
+            offset = new_rect.topLeft()
+            translated_poly = QPolygonF([p + offset for p in new_poly])
+            self.setPolygon(translated_poly)
+            
+            self.center_label()
+            self.update_arrows()
+
+
+class DiagramTriangleLeft(QGraphicsPolygonItem, BaseShape):
+    """Left-facing triangle shape (pointing left)."""
+    
+    def __init__(self, x, y, width=80, height=100, color="#1abc9c"):
+        self._width = width
+        self._height = height
+        poly = self._create_polygon(width, height)
+        super().__init__(poly)
+        self.init_shape(x, y, width, height, color)
+    
+    def itemChange(self, change, value):
+        self._on_item_change(change, value)
+        return super().itemChange(change, value)
+    
+    def _create_polygon(self, width, height):
+        return QPolygonF([
+            QPointF(width, 0),
+            QPointF(width, height),
+            QPointF(0, height / 2)
+        ])
+    
+    def handle_resize(self, handle_pos, new_pos):
+        if not self._resizing:
+            return
+        rect = self.boundingRect()
+        
+        if handle_pos == ResizeHandle.TOP_LEFT:
+            new_rect = QRectF(new_pos, rect.bottomRight())
+        elif handle_pos == ResizeHandle.TOP_RIGHT:
+            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                             QPointF(new_pos.x(), rect.bottom()))
+        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                             QPointF(rect.right(), new_pos.y()))
+        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+            new_rect = QRectF(rect.topLeft(), new_pos)
+        
+        new_rect = new_rect.normalized()
+        
+        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+            self._width = new_rect.width()
+            self._height = new_rect.height()
+            self.shape_width = self._width
+            self.shape_height = self._height
+            
+            new_poly = self._create_polygon(self._width, self._height)
+            offset = new_rect.topLeft()
+            translated_poly = QPolygonF([p + offset for p in new_poly])
+            self.setPolygon(translated_poly)
+            
+            self.center_label()
+            self.update_arrows()
+
+
+class DiagramTriangleRight(QGraphicsPolygonItem, BaseShape):
+    """Right-facing triangle shape (pointing right)."""
+    
+    def __init__(self, x, y, width=80, height=100, color="#3498db"):
+        self._width = width
+        self._height = height
+        poly = self._create_polygon(width, height)
+        super().__init__(poly)
+        self.init_shape(x, y, width, height, color)
+    
+    def itemChange(self, change, value):
+        self._on_item_change(change, value)
+        return super().itemChange(change, value)
+    
+    def _create_polygon(self, width, height):
+        return QPolygonF([
+            QPointF(0, 0),
+            QPointF(width, height / 2),
             QPointF(0, height)
         ])
     
