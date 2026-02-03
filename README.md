@@ -2,6 +2,8 @@
 
 A simple diagram tool built with PyQt5.
 
+![Screenshot](https://raw.githubusercontent.com/rubysash/python-diagrams/main/screenshot.png)
+
 ## Install
 
 ```bash
