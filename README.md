@@ -4,15 +4,22 @@ A simple diagram tool built with PyQt5.
 
 ![Screenshot](https://raw.githubusercontent.com/rubysash/python-diagrams/main/screenshot.png)
 
-## Install
+## Install in Venv
 
-```bash
-pip install PyQt5
+```
+git clone https://github.com/rubysash/python-diagrams.git
+python -m venv python-diagrams
+cd python-diagrams
+scripts\activate
+python -m pip install pip --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
 ## Run
 
 ```bash
+cd python-diagrams
+scripts\activate
 python main.py
 ```
 
