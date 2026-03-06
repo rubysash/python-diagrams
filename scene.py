@@ -89,6 +89,8 @@ class DiagramScene(QGraphicsScene):
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
         self._clipboard = None
+        # Track positions before a drag to detect actual moves
+        self._drag_start_positions = None
         # Grid settings
         self.grid_size = 20
         self.grid_visible = False
@@ -345,6 +347,12 @@ class DiagramScene(QGraphicsScene):
                     if not shape.isSelected():
                         self.clearSelection()
                         shape.setSelected(True)
+                # Snapshot positions before a potential drag
+                self._drag_start_positions = {
+                    item: item.pos()
+                    for item in self.selectedItems()
+                    if isinstance(item, SHAPE_CLASSES)
+                }
                 self.shape_selected.emit(shape)
                 if isinstance(shape, DiagramText):
                     self.text_selected.emit(shape)
@@ -361,14 +369,44 @@ class DiagramScene(QGraphicsScene):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Snap selected shapes to grid after a drag."""
+        """Save undo if items moved, then snap to grid."""
         super().mouseReleaseEvent(event)
+
+        # Check if any shapes actually moved during this drag
+        if self._drag_start_positions:
+            moved = any(
+                item.pos() != old_pos
+                for item, old_pos in self._drag_start_positions.items()
+                if item.scene() is not None  # item still in scene
+            )
+            if moved:
+                # Save the pre-drag state as an undo snapshot
+                # We need to reconstruct it from stored positions
+                self._save_move_undo(self._drag_start_positions)
+            self._drag_start_positions = None
+
+        # Snap to grid after move
         if self.snap_to_grid:
             for item in self.selectedItems():
                 if isinstance(item, SHAPE_CLASSES):
                     snapped = self.snap_position(item.pos())
                     if snapped != item.pos():
                         item.setPos(snapped)
+
+    def _save_move_undo(self, start_positions):
+        """Save undo by temporarily restoring pre-drag positions for snapshot."""
+        # Record current (post-drag) positions
+        current_positions = {item: item.pos() for item in start_positions}
+        # Move items back to pre-drag positions
+        for item, old_pos in start_positions.items():
+            if item.scene() is not None:
+                item.setPos(old_pos)
+        # Take snapshot of pre-drag state
+        self.save_undo()
+        # Restore post-drag positions
+        for item, new_pos in current_positions.items():
+            if item.scene() is not None:
+                item.setPos(new_pos)
 
     def _show_context_menu(self, event, shape):
         """Show right-click context menu for a shape."""

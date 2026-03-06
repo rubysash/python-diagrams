@@ -38,6 +38,9 @@ class ResizeHandle(QGraphicsRectItem):
         return super().itemChange(change, value)
     
     def mousePressEvent(self, event):
+        # Save undo snapshot before resize begins
+        if self.scene() and hasattr(self.scene(), 'save_undo'):
+            self.scene().save_undo()
         self.parent_shape.start_resize()
         event.accept()
         super().mousePressEvent(event)
