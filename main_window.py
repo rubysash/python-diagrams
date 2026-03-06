@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction,
                              QActionGroup, QColorDialog, QPushButton, QLabel,
                              QFontComboBox, QSpinBox, QComboBox, QWidget,
-                             QHBoxLayout, QShortcut)
+                             QHBoxLayout, QShortcut, QDialog, QVBoxLayout,
+                             QTextBrowser)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import (QPainter, QColor, QIcon, QPixmap, QPainterPath,
                           QPolygonF, QPen, QBrush, QFont, QKeySequence)
@@ -466,6 +467,13 @@ class MainWindow(QMainWindow):
         snap_action.triggered.connect(self.scene.toggle_snap)
         file_tb.addAction(snap_action)
 
+        file_tb.addSeparator()
+
+        help_action = QAction("?", self)
+        help_action.setToolTip("Keyboard shortcuts & help")
+        help_action.triggered.connect(self._show_help)
+        file_tb.addAction(help_action)
+
     def _add_tool_actions(self, toolbar, tools, default_mode=None):
         """Add checkable tool actions to a toolbar with optional shortcuts."""
         for mode, tooltip, draw_func, shortcut in tools:
@@ -564,3 +572,75 @@ class MainWindow(QMainWindow):
         for item in self.scene.selectedItems():
             if isinstance(item, Arrow):
                 item.set_line_width(width)
+
+    def _show_help(self):
+        """Show keyboard shortcuts and controls in a formatted popup."""
+        html = """
+        <style>
+            table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
+            th { background: #2c3e50; color: white; padding: 6px 10px; text-align: left; }
+            td { padding: 4px 10px; border-bottom: 1px solid #ddd; }
+            tr:nth-child(even) { background: #f2f2f2; }
+            h3 { margin: 10px 0 4px 0; color: #2c3e50; }
+        </style>
+
+        <h3>Tool Shortcuts</h3>
+        <table>
+            <tr><th>Key</th><th>Tool</th></tr>
+            <tr><td>V</td><td>Select</td></tr>
+            <tr><td>R</td><td>Rectangle</td></tr>
+            <tr><td>S</td><td>Square</td></tr>
+            <tr><td>O</td><td>Oval</td></tr>
+            <tr><td>I</td><td>Circle</td></tr>
+            <tr><td>D</td><td>Diamond</td></tr>
+            <tr><td>H</td><td>Hexagon</td></tr>
+            <tr><td>G</td><td>Octagon</td></tr>
+            <tr><td>T</td><td>Triangle (Up)</td></tr>
+            <tr><td>X</td><td>Text Label</td></tr>
+            <tr><td>A</td><td>Arrow</td></tr>
+            <tr><td>W</td><td>Two-way Arrow</td></tr>
+        </table>
+
+        <h3>Editing</h3>
+        <table>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+            <tr><td>Ctrl+C</td><td>Copy</td></tr>
+            <tr><td>Ctrl+X</td><td>Cut</td></tr>
+            <tr><td>Ctrl+V</td><td>Paste</td></tr>
+            <tr><td>Ctrl+Z</td><td>Undo</td></tr>
+            <tr><td>Ctrl+Y</td><td>Redo</td></tr>
+            <tr><td>Delete</td><td>Delete selected</td></tr>
+            <tr><td>F2</td><td>Rename / edit label</td></tr>
+            <tr><td>Escape</td><td>Clear selection</td></tr>
+            <tr><td>+ / =</td><td>Layer up (send forward)</td></tr>
+            <tr><td>-</td><td>Layer down (send backward)</td></tr>
+        </table>
+
+        <h3>File</h3>
+        <table>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+            <tr><td>Ctrl+S</td><td>Save diagram</td></tr>
+            <tr><td>Ctrl+O</td><td>Open diagram</td></tr>
+        </table>
+
+        <h3>Navigation</h3>
+        <table>
+            <tr><th>Action</th><th>How</th></tr>
+            <tr><td>Zoom in/out</td><td>Mouse wheel</td></tr>
+            <tr><td>Multi-select</td><td>Ctrl+Click or Shift+Click</td></tr>
+            <tr><td>Box select</td><td>Drag on empty canvas</td></tr>
+            <tr><td>Additive box select</td><td>Shift+Drag</td></tr>
+            <tr><td>Double-click canvas</td><td>Add shape</td></tr>
+            <tr><td>Double-click shape</td><td>Edit label</td></tr>
+            <tr><td>Right-click</td><td>Context menu</td></tr>
+        </table>
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Keyboard Shortcuts & Help")
+        dialog.setMinimumSize(420, 520)
+        layout = QVBoxLayout(dialog)
+        browser = QTextBrowser()
+        browser.setHtml(html)
+        browser.setOpenExternalLinks(False)
+        layout.addWidget(browser)
+        dialog.exec_()

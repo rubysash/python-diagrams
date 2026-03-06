@@ -22,9 +22,10 @@ python main.py
 | Select | Click shape/arrow |
 | Move | Drag selected shape |
 | Resize | Drag corner handles |
-| Label | Right-click shape/arrow → enter text (uses selected label color) |
+| Edit label | Double-click shape/arrow in Select mode, or F2, or right-click |
 | Right-click menu | Right-click shape for label, send forward/back, delete |
 | Connect | Arrow tool → click source → click target |
+| Arrow style | Select arrow → use Style/Width dropdowns in Arrows toolbar |
 | Multi-select | Ctrl+Click or Shift+Click items |
 | Box select | Drag on empty canvas (rubber band) |
 | Additive box select | Shift+drag to add to existing selection |
@@ -32,8 +33,11 @@ python main.py
 | Cut | Ctrl+X (copies then deletes selected items) |
 | Paste | Ctrl+V (pastes with slight offset, auto-selected) |
 | Delete | Select + Delete key |
-| Undo | Ctrl+Z (10 levels) |
+| Undo | Ctrl+Z (10 levels, includes move/resize) |
 | Redo | Ctrl+Y |
+| Save | Ctrl+S |
+| Open | Ctrl+O |
+| Rename/Label | F2 (selected item) |
 | Clear selection | Press Escape |
 | Layer up | Select + press `+` or `=` |
 | Layer down | Select + press `-` |
@@ -98,9 +102,9 @@ python main.py
 - [ ] Distribute evenly (equal spacing)
 - [ ] Snap to other shapes (guide lines)
 - [ ] Drag to create (click and drag to set shape size)
-- [ ] Double-click shape to edit label inline
+- [x] Double-click shape to edit label inline
 - [ ] Arrow routing styles (straight, orthogonal, curved)
-- [ ] Arrow line styles (dashed, dotted, thick, thin)
+- [x] Arrow line styles (dashed, dotted, thick, thin)
 - [ ] Shape border color and thickness separate from fill
 - [ ] Opacity/transparency control
 - [ ] Drop shadows toggle
