@@ -43,9 +43,19 @@ def draw_rectangle(painter, size):
     painter.drawRect(4, 6, 16, 12)
 
 
+def draw_square(painter, size):
+    """Draw square icon."""
+    painter.drawRect(5, 5, 14, 14)
+
+
 def draw_oval(painter, size):
     """Draw oval icon."""
     painter.drawEllipse(4, 6, 16, 12)
+
+
+def draw_circle(painter, size):
+    """Draw circle icon."""
+    painter.drawEllipse(5, 5, 14, 14)
 
 
 def draw_diamond(painter, size):
@@ -60,12 +70,75 @@ def draw_diamond(painter, size):
     painter.drawPolygon(points)
 
 
+def draw_hexagon(painter, size):
+    """Draw hexagon icon."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(8, 4),
+        QPointF(16, 4),
+        QPointF(20, 12),
+        QPointF(16, 20),
+        QPointF(8, 20),
+        QPointF(4, 12),
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_octagon(painter, size):
+    """Draw octagon icon."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(8, 4),
+        QPointF(16, 4),
+        QPointF(20, 8),
+        QPointF(20, 16),
+        QPointF(16, 20),
+        QPointF(8, 20),
+        QPointF(4, 16),
+        QPointF(4, 8),
+    ])
+    painter.drawPolygon(points)
+
+
 def draw_triangle(painter, size):
-    """Draw triangle icon."""
+    """Draw triangle icon (pointing up)."""
     from PyQt5.QtCore import QPointF
     points = QPolygonF([
         QPointF(12, 4),
         QPointF(20, 20),
+        QPointF(4, 20)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_inverted(painter, size):
+    """Draw inverted triangle icon (pointing down)."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(4, 4),
+        QPointF(20, 4),
+        QPointF(12, 20)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_left(painter, size):
+    """Draw left-facing triangle icon."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(20, 4),
+        QPointF(20, 20),
+        QPointF(4, 12)
+    ])
+    painter.drawPolygon(points)
+
+
+def draw_triangle_right(painter, size):
+    """Draw right-facing triangle icon."""
+    from PyQt5.QtCore import QPointF
+    points = QPolygonF([
+        QPointF(4, 4),
+        QPointF(20, 12),
         QPointF(4, 20)
     ])
     painter.drawPolygon(points)
@@ -205,9 +278,16 @@ class MainWindow(QMainWindow):
         tools = [
             (DiagramScene.MODE_SELECT, "Select (V)", draw_select),
             (DiagramScene.MODE_RECTANGLE, "Rectangle", draw_rectangle),
+            (DiagramScene.MODE_SQUARE, "Square", draw_square),
             (DiagramScene.MODE_OVAL, "Oval", draw_oval),
+            (DiagramScene.MODE_CIRCLE, "Circle", draw_circle),
             (DiagramScene.MODE_DIAMOND, "Diamond", draw_diamond),
-            (DiagramScene.MODE_TRIANGLE, "Triangle", draw_triangle),
+            (DiagramScene.MODE_HEXAGON, "Hexagon", draw_hexagon),
+            (DiagramScene.MODE_OCTAGON, "Octagon", draw_octagon),
+            (DiagramScene.MODE_TRIANGLE, "Triangle (Up)", draw_triangle),
+            (DiagramScene.MODE_TRIANGLE_INVERTED, "Triangle (Down)", draw_triangle_inverted),
+            (DiagramScene.MODE_TRIANGLE_LEFT, "Triangle (Left)", draw_triangle_left),
+            (DiagramScene.MODE_TRIANGLE_RIGHT, "Triangle (Right)", draw_triangle_right),
             (DiagramScene.MODE_TEXT, "Text Label", draw_text),
         ]
         

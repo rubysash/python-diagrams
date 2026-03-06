@@ -4,8 +4,67 @@ from PyQt5.QtCore import QRectF, QSize
 from PyQt5.QtGui import QPainter, QImage, QColor
 from PyQt5.QtSvg import QSvgGenerator
 
-from shapes import DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText
+from shapes import (
+    DiagramRect, DiagramSquare, DiagramOval, DiagramCircle,
+    DiagramDiamond, DiagramHexagon, DiagramOctagon,
+    DiagramTriangle, DiagramTriangleInverted,
+    DiagramTriangleLeft, DiagramTriangleRight,
+    DiagramText,
+)
 from arrows import Arrow
+
+# All geometric shape classes (excludes DiagramText which serializes differently)
+_GEO_SHAPES = (
+    DiagramRect, DiagramSquare, DiagramOval, DiagramCircle,
+    DiagramDiamond, DiagramHexagon, DiagramOctagon,
+    DiagramTriangle, DiagramTriangleInverted,
+    DiagramTriangleLeft, DiagramTriangleRight,
+)
+
+# All shape classes including text
+_ALL_SHAPES = _GEO_SHAPES + (DiagramText,)
+
+
+def _build_shape_constructors():
+    """Return a dict mapping type names to factory functions for deserialization."""
+    # Geometric shapes all share the same (x, y, width, height, color) signature
+    geo_map = {
+        'DiagramRect': (DiagramRect, 100, 60, '#3498db'),
+        'DiagramSquare': (DiagramSquare, 80, 80, '#2980b9'),
+        'DiagramOval': (DiagramOval, 100, 60, '#2ecc71'),
+        'DiagramCircle': (DiagramCircle, 80, 80, '#27ae60'),
+        'DiagramDiamond': (DiagramDiamond, 100, 60, '#e74c3c'),
+        'DiagramHexagon': (DiagramHexagon, 100, 86, '#8e44ad'),
+        'DiagramOctagon': (DiagramOctagon, 100, 100, '#c0392b'),
+        'DiagramTriangle': (DiagramTriangle, 100, 80, '#9b59b6'),
+        'DiagramTriangleInverted': (DiagramTriangleInverted, 100, 80, '#e67e22'),
+        'DiagramTriangleLeft': (DiagramTriangleLeft, 80, 100, '#1abc9c'),
+        'DiagramTriangleRight': (DiagramTriangleRight, 80, 100, '#3498db'),
+    }
+
+    constructors = {}
+    for name, (cls, dw, dh, dc) in geo_map.items():
+        constructors[name] = (
+            lambda d, _cls=cls, _dw=dw, _dh=dh, _dc=dc: _cls(
+                d.get('x', 0), d.get('y', 0),
+                width=d.get('width', _dw),
+                height=d.get('height', _dh),
+                color=d.get('color', _dc),
+            )
+        )
+
+    # DiagramText has a different constructor signature
+    constructors['DiagramText'] = lambda d: DiagramText(
+        d.get('x', 0), d.get('y', 0),
+        text=d.get('text', 'Text'),
+        font_family=d.get('font_family', 'Arial'),
+        font_size=d.get('font_size', 14),
+        color=d.get('color', '#333333'),
+        bold=d.get('bold', False),
+        underline=d.get('underline', False),
+    )
+
+    return constructors
 
 
 class ExportManager:
@@ -39,7 +98,7 @@ class ExportManager:
         
         # Serialize shapes
         for item in self.scene.items():
-            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle)):
+            if isinstance(item, _GEO_SHAPES):
                 shape_data = {
                     'id': shape_id,
                     'type': item.__class__.__name__,
@@ -98,53 +157,14 @@ class ExportManager:
         
         shape_map = {}  # Map IDs to created shape objects
         
-        # Create shapes
+        # Create shapes using constructor map to avoid large if/elif chains
+        constructors = _build_shape_constructors()
         for shape_data in data.get('shapes', []):
             shape_type = shape_data.get('type')
             shape_id = shape_data.get('id')
-            x = shape_data.get('x', 0)
-            y = shape_data.get('y', 0)
-            
-            shape = None
-            
-            if shape_type == 'DiagramRect':
-                shape = DiagramRect(
-                    x, y,
-                    width=shape_data.get('width', 100),
-                    height=shape_data.get('height', 60),
-                    color=shape_data.get('color', '#3498db')
-                )
-            elif shape_type == 'DiagramOval':
-                shape = DiagramOval(
-                    x, y,
-                    width=shape_data.get('width', 100),
-                    height=shape_data.get('height', 60),
-                    color=shape_data.get('color', '#2ecc71')
-                )
-            elif shape_type == 'DiagramDiamond':
-                shape = DiagramDiamond(
-                    x, y,
-                    width=shape_data.get('width', 100),
-                    height=shape_data.get('height', 60),
-                    color=shape_data.get('color', '#e74c3c')
-                )
-            elif shape_type == 'DiagramTriangle':
-                shape = DiagramTriangle(
-                    x, y,
-                    width=shape_data.get('width', 100),
-                    height=shape_data.get('height', 80),
-                    color=shape_data.get('color', '#9b59b6')
-                )
-            elif shape_type == 'DiagramText':
-                shape = DiagramText(
-                    x, y,
-                    text=shape_data.get('text', 'Text'),
-                    font_family=shape_data.get('font_family', 'Arial'),
-                    font_size=shape_data.get('font_size', 14),
-                    color=shape_data.get('color', '#333333'),
-                    bold=shape_data.get('bold', False),
-                    underline=shape_data.get('underline', False)
-                )
+
+            constructor = constructors.get(shape_type)
+            shape = constructor(shape_data) if constructor else None
             
             if shape:
                 self.scene.addItem(shape)
@@ -195,9 +215,8 @@ class ExportManager:
     
     def export_json(self, parent=None):
         """Export scene to JSON file."""
-        items = [item for item in self.scene.items() 
-                 if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, 
-                                      DiagramTriangle, DiagramText, Arrow))]
+        items = [item for item in self.scene.items()
+                 if isinstance(item, (_ALL_SHAPES + (Arrow,)))]
         if not items:
             QMessageBox.warning(parent, "Export", "Nothing to export!")
             return False

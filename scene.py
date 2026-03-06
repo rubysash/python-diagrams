@@ -2,27 +2,51 @@ from PyQt5.QtWidgets import QGraphicsScene, QInputDialog
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QColor
 
-from shapes import DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText
+from shapes import (
+    DiagramRect, DiagramSquare, DiagramOval, DiagramCircle,
+    DiagramDiamond, DiagramHexagon, DiagramOctagon,
+    DiagramTriangle, DiagramTriangleInverted,
+    DiagramTriangleLeft, DiagramTriangleRight,
+    DiagramText,
+)
 from arrows import Arrow
 from handles import ResizeHandle
 
 PASTE_OFFSET = 20
 
-SHAPE_CLASSES = (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText)
+# All shape types for isinstance checks (excludes Arrow/ResizeHandle)
+SHAPE_CLASSES = (
+    DiagramRect, DiagramSquare, DiagramOval, DiagramCircle,
+    DiagramDiamond, DiagramHexagon, DiagramOctagon,
+    DiagramTriangle, DiagramTriangleInverted,
+    DiagramTriangleLeft, DiagramTriangleRight,
+    DiagramText,
+)
 
+# Map class names to factory functions for clipboard paste / JSON load
 SHAPE_CONSTRUCTORS = {
     'DiagramRect': lambda d: DiagramRect(
-        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#3498db')
-    ),
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#3498db')),
+    'DiagramSquare': lambda d: DiagramSquare(
+        d['x'], d['y'], d.get('width', 80), d.get('height', 80), d.get('color', '#2980b9')),
     'DiagramOval': lambda d: DiagramOval(
-        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#2ecc71')
-    ),
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#2ecc71')),
+    'DiagramCircle': lambda d: DiagramCircle(
+        d['x'], d['y'], d.get('width', 80), d.get('height', 80), d.get('color', '#27ae60')),
     'DiagramDiamond': lambda d: DiagramDiamond(
-        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#e74c3c')
-    ),
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#e74c3c')),
+    'DiagramHexagon': lambda d: DiagramHexagon(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 86), d.get('color', '#8e44ad')),
+    'DiagramOctagon': lambda d: DiagramOctagon(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 100), d.get('color', '#c0392b')),
     'DiagramTriangle': lambda d: DiagramTriangle(
-        d['x'], d['y'], d.get('width', 100), d.get('height', 80), d.get('color', '#9b59b6')
-    ),
+        d['x'], d['y'], d.get('width', 100), d.get('height', 80), d.get('color', '#9b59b6')),
+    'DiagramTriangleInverted': lambda d: DiagramTriangleInverted(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 80), d.get('color', '#e67e22')),
+    'DiagramTriangleLeft': lambda d: DiagramTriangleLeft(
+        d['x'], d['y'], d.get('width', 80), d.get('height', 100), d.get('color', '#1abc9c')),
+    'DiagramTriangleRight': lambda d: DiagramTriangleRight(
+        d['x'], d['y'], d.get('width', 80), d.get('height', 100), d.get('color', '#3498db')),
     'DiagramText': lambda d: DiagramText(
         d['x'], d['y'],
         text=d.get('text', 'Text'),
@@ -30,8 +54,7 @@ SHAPE_CONSTRUCTORS = {
         font_size=d.get('font_size', 14),
         color=d.get('color', '#333333'),
         bold=d.get('bold', False),
-        underline=d.get('underline', False),
-    ),
+        underline=d.get('underline', False)),
 }
 
 
@@ -44,9 +67,16 @@ class DiagramScene(QGraphicsScene):
 
     MODE_SELECT = "Select"
     MODE_RECTANGLE = "Rectangle"
+    MODE_SQUARE = "Square"
     MODE_OVAL = "Oval"
+    MODE_CIRCLE = "Circle"
     MODE_DIAMOND = "Diamond"
+    MODE_HEXAGON = "Hexagon"
+    MODE_OCTAGON = "Octagon"
     MODE_TRIANGLE = "Triangle"
+    MODE_TRIANGLE_INVERTED = "Triangle Inverted"
+    MODE_TRIANGLE_LEFT = "Triangle Left"
+    MODE_TRIANGLE_RIGHT = "Triangle Right"
     MODE_TEXT = "Text"
     MODE_ARROW = "Arrow"
     MODE_ARROW_BIDIR = "Two-Way"
@@ -137,12 +167,12 @@ class DiagramScene(QGraphicsScene):
     def get_shape_at(self, pos):
         items = self.items(pos)
         for item in items:
-            # Direct check for diagram shapes
-            if isinstance(item, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText)):
+            # Direct check for any diagram shape
+            if isinstance(item, SHAPE_CLASSES):
                 return item
-            # Check if clicking on a child item (like a label) - return the parent shape
+            # Check if clicking on a child item (like a label) — return the parent shape
             parent = item.parentItem()
-            if parent and isinstance(parent, (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle)):
+            if parent and isinstance(parent, SHAPE_CLASSES):
                 return parent
         return None
     
@@ -177,15 +207,24 @@ class DiagramScene(QGraphicsScene):
     
     def _create_shape(self, x, y):
         color = self.current_color.name()
-        if self.current_mode == self.MODE_RECTANGLE:
-            return DiagramRect(x, y, color=color)
-        elif self.current_mode == self.MODE_OVAL:
-            return DiagramOval(x, y, color=color)
-        elif self.current_mode == self.MODE_DIAMOND:
-            return DiagramDiamond(x, y, color=color)
-        elif self.current_mode == self.MODE_TRIANGLE:
-            return DiagramTriangle(x, y, color=color)
-        elif self.current_mode == self.MODE_TEXT:
+        # Map mode names to shape classes for simple constructors
+        simple_shapes = {
+            self.MODE_RECTANGLE: DiagramRect,
+            self.MODE_SQUARE: DiagramSquare,
+            self.MODE_OVAL: DiagramOval,
+            self.MODE_CIRCLE: DiagramCircle,
+            self.MODE_DIAMOND: DiagramDiamond,
+            self.MODE_HEXAGON: DiagramHexagon,
+            self.MODE_OCTAGON: DiagramOctagon,
+            self.MODE_TRIANGLE: DiagramTriangle,
+            self.MODE_TRIANGLE_INVERTED: DiagramTriangleInverted,
+            self.MODE_TRIANGLE_LEFT: DiagramTriangleLeft,
+            self.MODE_TRIANGLE_RIGHT: DiagramTriangleRight,
+        }
+        shape_cls = simple_shapes.get(self.current_mode)
+        if shape_cls:
+            return shape_cls(x, y, color=color)
+        if self.current_mode == self.MODE_TEXT:
             return DiagramText(
                 x, y, 
                 text="Text",
