@@ -24,8 +24,14 @@ python main.py
 | Resize | Drag corner handles |
 | Label | Right-click shape/arrow (uses selected label color) |
 | Connect | Arrow tool → click source → click target |
+| Multi-select | Ctrl+Click or Shift+Click items |
+| Box select | Drag on empty canvas (rubber band) |
+| Additive box select | Shift+drag to add to existing selection |
+| Copy | Ctrl+C (copies selected shapes and their arrows) |
+| Cut | Ctrl+X (copies then deletes selected items) |
+| Paste | Ctrl+V (pastes with slight offset, auto-selected) |
 | Delete | Select + Delete key |
-| Clear all | Press Escape |
+| Clear selection | Press Escape |
 | Layer up | Select + press `+` or `=` |
 | Layer down | Select + press `-` |
 

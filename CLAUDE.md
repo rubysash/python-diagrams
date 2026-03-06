@@ -17,6 +17,7 @@
 - Keep functions short and single-purpose
 - Use type hints for function signatures
 - Imports should be organized: stdlib, third-party, local (separated by blank lines)
+- Include useful comments in all written code — explain the "why", not just the "what"
 
 ## Python Best Practices
 - Use `pathlib.Path` over `os.path` for file operations
