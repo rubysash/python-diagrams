@@ -85,6 +85,7 @@ class AnchorPoint(QGraphicsEllipseItem):
         self.setCursor(Qt.SizeAllCursor)
         self.arrows = []
         self.docked_shape = None  # Shape this anchor is snapped to
+        self._dock_angle = 0.0    # Angle from shape center to dock point
 
     def shape(self):
         """Wider hit area for easier clicking."""
@@ -100,15 +101,30 @@ class AnchorPoint(QGraphicsEllipseItem):
         return self.scenePos()
 
     def get_connection_point(self, target_pos):
-        """When docked, delegate to the shape for proper edge snapping."""
+        """When docked, compute edge point at the stored angle on the shape."""
         if self.docked_shape:
-            pt = self.docked_shape.get_connection_point(target_pos)
+            pt = self._edge_point_at_angle(self.docked_shape, self._dock_angle)
             # Move anchor dot to the edge point (without triggering itemChange)
             self.setFlag(self.ItemSendsGeometryChanges, False)
             self.setPos(pt)
             self.setFlag(self.ItemSendsGeometryChanges, True)
             return pt
         return self.scenePos()
+
+    @staticmethod
+    def _edge_point_at_angle(shape, angle):
+        """Get the point on the shape's bounding rect edge at a given angle."""
+        rect = shape.sceneBoundingRect()
+        cx, cy = rect.center().x(), rect.center().y()
+        dx = math.cos(angle)
+        dy = math.sin(angle)
+        hw = rect.width() / 2
+        hh = rect.height() / 2
+        # Time to hit vertical and horizontal edges
+        tx = (hw / abs(dx)) if abs(dx) > 1e-10 else float('inf')
+        ty = (hh / abs(dy)) if abs(dy) > 1e-10 else float('inf')
+        t = min(tx, ty)
+        return QPointF(cx + dx * t, cy + dy * t)
 
     def add_arrow(self, arrow):
         if arrow not in self.arrows:
@@ -124,6 +140,12 @@ class AnchorPoint(QGraphicsEllipseItem):
             return
         self.undock()
         self.docked_shape = shape
+        # Store angle from shape center to anchor position (determines edge point)
+        center = shape.get_center()
+        self._dock_angle = math.atan2(
+            self.scenePos().y() - center.y(),
+            self.scenePos().x() - center.x()
+        )
         # Register our arrows with the shape so it updates them when it moves
         for arrow in self.arrows:
             shape.add_arrow(arrow)
