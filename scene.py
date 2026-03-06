@@ -6,14 +6,42 @@ from shapes import DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, Di
 from arrows import Arrow
 from handles import ResizeHandle
 
+PASTE_OFFSET = 20
+
+SHAPE_CLASSES = (DiagramRect, DiagramOval, DiagramDiamond, DiagramTriangle, DiagramText)
+
+SHAPE_CONSTRUCTORS = {
+    'DiagramRect': lambda d: DiagramRect(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#3498db')
+    ),
+    'DiagramOval': lambda d: DiagramOval(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#2ecc71')
+    ),
+    'DiagramDiamond': lambda d: DiagramDiamond(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 60), d.get('color', '#e74c3c')
+    ),
+    'DiagramTriangle': lambda d: DiagramTriangle(
+        d['x'], d['y'], d.get('width', 100), d.get('height', 80), d.get('color', '#9b59b6')
+    ),
+    'DiagramText': lambda d: DiagramText(
+        d['x'], d['y'],
+        text=d.get('text', 'Text'),
+        font_family=d.get('font_family', 'Arial'),
+        font_size=d.get('font_size', 14),
+        color=d.get('color', '#333333'),
+        bold=d.get('bold', False),
+        underline=d.get('underline', False),
+    ),
+}
+
 
 class DiagramScene(QGraphicsScene):
     """Scene managing diagram shapes and interactions."""
-    
+
     shape_selected = pyqtSignal(object)
     text_selected = pyqtSignal(object)  # Signal for text selection with formatting info
     status_message = pyqtSignal(str)
-    
+
     MODE_SELECT = "Select"
     MODE_RECTANGLE = "Rectangle"
     MODE_OVAL = "Oval"
@@ -22,7 +50,7 @@ class DiagramScene(QGraphicsScene):
     MODE_TEXT = "Text"
     MODE_ARROW = "Arrow"
     MODE_ARROW_BIDIR = "Two-Way"
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_mode = self.MODE_RECTANGLE
@@ -30,6 +58,7 @@ class DiagramScene(QGraphicsScene):
         self.current_label_color = QColor("#333333")  # Separate label color
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
+        self._clipboard = None
         # Text settings
         self.text_settings = {
             'font_family': 'Arial',
@@ -213,22 +242,29 @@ class DiagramScene(QGraphicsScene):
             return
         
         if event.button() == Qt.LeftButton:
+            modifiers = event.modifiers()
+            multi_select = modifiers & (Qt.ControlModifier | Qt.ShiftModifier)
+
             if shape:
-                # Only clear selection if clicking on a different shape
-                if not shape.isSelected():
-                    self.clearSelection()
-                    shape.setSelected(True)
+                if multi_select:
+                    shape.setSelected(not shape.isSelected())
+                else:
+                    if not shape.isSelected():
+                        self.clearSelection()
+                        shape.setSelected(True)
                 self.shape_selected.emit(shape)
-                # Also emit text_selected for text shapes
                 if isinstance(shape, DiagramText):
                     self.text_selected.emit(shape)
             elif arrow:
-                self.clearSelection()
-                arrow.setSelected(True)
+                if multi_select:
+                    arrow.setSelected(not arrow.isSelected())
+                else:
+                    self.clearSelection()
+                    arrow.setSelected(True)
             else:
-                # Clicked on empty space - clear selection
-                self.clearSelection()
-        
+                if not multi_select:
+                    self.clearSelection()
+
         super().mousePressEvent(event)
     
     def _add_label_to_shape(self, shape):
@@ -279,9 +315,157 @@ class DiagramScene(QGraphicsScene):
             self._change_z_order(1)
         elif event.key() == Qt.Key_Minus:
             self._change_z_order(-1)
+        elif event.modifiers() & Qt.ControlModifier:
+            if event.key() == Qt.Key_C:
+                self._copy_selected()
+            elif event.key() == Qt.Key_X:
+                self._cut_selected()
+            elif event.key() == Qt.Key_V:
+                self._paste_clipboard()
+            else:
+                super().keyPressEvent(event)
         else:
             super().keyPressEvent(event)
     
+    # ------------------------------------------------------------------
+    # Clipboard helpers
+    # ------------------------------------------------------------------
+
+    def _serialize_selected(self):
+        """Serialize selected shapes and their interconnecting arrows."""
+        items = self.selectedItems()
+        shapes = [i for i in items if isinstance(i, SHAPE_CLASSES)]
+        if not shapes:
+            return None
+
+        shape_id_map = {}
+        shape_list = []
+        for idx, item in enumerate(shapes):
+            shape_id_map[item] = idx
+            shape_list.append(self._serialize_shape(item, idx))
+
+        arrow_list = []
+        for item in self.items():
+            if not isinstance(item, Arrow):
+                continue
+            if item.start_shape in shape_id_map and item.end_shape in shape_id_map:
+                arrow_list.append({
+                    'start_id': shape_id_map[item.start_shape],
+                    'end_id': shape_id_map[item.end_shape],
+                    'bidirectional': item.bidirectional,
+                    'color': item.arrow_color.name(),
+                    'label': item.label.text() if item.label else None,
+                    'label_color': item.label_color.name(),
+                    'label_font_size': item.label_font_size,
+                })
+
+        return {'shapes': shape_list, 'arrows': arrow_list}
+
+    @staticmethod
+    def _serialize_shape(item, shape_id):
+        """Return a dict representing a single shape."""
+        if isinstance(item, DiagramText):
+            return {
+                'id': shape_id,
+                'type': 'DiagramText',
+                'x': item.pos().x(),
+                'y': item.pos().y(),
+                'text': item.toPlainText(),
+                'color': item.text_color.name(),
+                'font_family': item.font_family,
+                'font_size': item.font_size,
+                'bold': item.is_bold,
+                'underline': item.is_underline,
+                'z': item.zValue(),
+            }
+        return {
+            'id': shape_id,
+            'type': item.__class__.__name__,
+            'x': item.pos().x(),
+            'y': item.pos().y(),
+            'width': item.shape_width,
+            'height': item.shape_height,
+            'color': item.shape_color.name(),
+            'label': item.label.text() if item.label else None,
+            'label_color': item.label_color.name(),
+            'label_font_size': item.label_font_size,
+            'z': item.zValue(),
+        }
+
+    def _paste_data(self, data, offset_x=PASTE_OFFSET, offset_y=PASTE_OFFSET):
+        """Instantiate shapes and arrows from clipboard data, offset from original."""
+        self.clearSelection()
+        shape_map = {}
+
+        for shape_data in data['shapes']:
+            shifted = dict(shape_data, x=shape_data['x'] + offset_x,
+                           y=shape_data['y'] + offset_y)
+            constructor = SHAPE_CONSTRUCTORS.get(shifted['type'])
+            if constructor is None:
+                continue
+            shape = constructor(shifted)
+            self.addItem(shape)
+            shape_map[shifted['id']] = shape
+
+            if shifted['type'] != 'DiagramText':
+                if hasattr(shape, 'set_label_color'):
+                    shape.set_label_color(shifted.get('label_color', '#ffffff'))
+                shape.label_font_size = shifted.get('label_font_size', 14)
+                if shifted.get('label'):
+                    shape.add_label(shifted['label'])
+
+            if 'z' in shifted:
+                shape.setZValue(shifted['z'])
+            shape.setSelected(True)
+
+        for arrow_data in data.get('arrows', []):
+            start = shape_map.get(arrow_data['start_id'])
+            end = shape_map.get(arrow_data['end_id'])
+            if start is None or end is None:
+                continue
+            arrow = Arrow(start, end,
+                          bidirectional=arrow_data.get('bidirectional', False),
+                          color=arrow_data.get('color', '#333333'))
+            self.addItem(arrow)
+            if 'label_color' in arrow_data:
+                arrow.set_label_color(arrow_data['label_color'])
+            if 'label_font_size' in arrow_data:
+                arrow.label_font_size = arrow_data['label_font_size']
+            if arrow_data.get('label'):
+                arrow.add_label(arrow_data['label'])
+
+        count = len(shape_map)
+        return count
+
+    def _copy_selected(self):
+        """Copy selected shapes to the internal clipboard."""
+        data = self._serialize_selected()
+        if data is None:
+            self.status_message.emit("Nothing selected to copy")
+            return
+        self._clipboard = data
+        count = len(data['shapes'])
+        self.status_message.emit(f"Copied {count} item(s)")
+
+    def _cut_selected(self):
+        """Cut selected shapes to the internal clipboard."""
+        data = self._serialize_selected()
+        if data is None:
+            self.status_message.emit("Nothing selected to cut")
+            return
+        self._clipboard = data
+        count = len(data['shapes'])
+        self._delete_selected()
+        self.status_message.emit(f"Cut {count} item(s)")
+
+    def _paste_clipboard(self):
+        """Paste shapes from the internal clipboard."""
+        if not self._clipboard:
+            self.status_message.emit("Clipboard is empty")
+            return
+        count = self._paste_data(self._clipboard)
+        self.status_message.emit(f"Pasted {count} item(s)")
+
     def _change_z_order(self, delta):
         """Change z-order of selected items."""
         items = self.selectedItems()

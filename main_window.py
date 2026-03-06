@@ -140,16 +140,28 @@ class ColorButton(QPushButton):
 
 class DiagramView(QGraphicsView):
     """Custom graphics view with proper focus handling for keyboard events."""
-    
+
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
-        # Enable focus to receive keyboard events
         self.setFocusPolicy(Qt.StrongFocus)
-    
+        self._pre_rubber_selection = set()
+
     def mousePressEvent(self, event):
-        # Ensure view has focus when clicked for keyboard events
         self.setFocus()
+        # Remember current selection when Shift/Ctrl is held for additive rubber band
+        if event.modifiers() & (Qt.ShiftModifier | Qt.ControlModifier):
+            self._pre_rubber_selection = set(self.scene().selectedItems())
+        else:
+            self._pre_rubber_selection = set()
         super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        # After rubber band finishes, restore previous selection alongside new
+        if self._pre_rubber_selection:
+            for item in self._pre_rubber_selection:
+                item.setSelected(True)
+            self._pre_rubber_selection = set()
 
 
 class MainWindow(QMainWindow):
