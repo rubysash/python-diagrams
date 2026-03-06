@@ -246,18 +246,33 @@ class DiagramScene(QGraphicsScene):
         return None
     
     def mouseDoubleClickEvent(self, event):
-        if self.current_mode in (self.MODE_SELECT, self.MODE_ARROW, self.MODE_ARROW_BIDIR):
+        pos = event.scenePos()
+
+        # In select mode, double-click a shape/arrow to edit its label
+        if self.current_mode == self.MODE_SELECT:
+            shape = self.get_shape_at(pos)
+            arrow = self.get_arrow_at(pos)
+            if shape:
+                self._add_label_to_shape(shape)
+            elif arrow:
+                self._add_label_to_arrow(arrow)
+            else:
+                super().mouseDoubleClickEvent(event)
+            return
+
+        # Arrow modes don't create shapes on double-click
+        if self.current_mode in (self.MODE_ARROW, self.MODE_ARROW_BIDIR):
             super().mouseDoubleClickEvent(event)
             return
-        
-        pos = event.scenePos()
+
+        # Shape modes: double-click empty space to create a new shape
         if self.get_shape_at(pos) is None:
             shape = self._create_shape(pos.x() - 50, pos.y() - 30)
             if shape:
                 self.save_undo()
                 self.addItem(shape)
                 self.status_message.emit(f"Created {self.current_mode}")
-        
+
         super().mouseDoubleClickEvent(event)
     
     def _create_shape(self, x, y):
