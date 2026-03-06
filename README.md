@@ -32,9 +32,32 @@ python main.py
 | Cut | Ctrl+X (copies then deletes selected items) |
 | Paste | Ctrl+V (pastes with slight offset, auto-selected) |
 | Delete | Select + Delete key |
+| Undo | Ctrl+Z (10 levels) |
+| Redo | Ctrl+Y |
 | Clear selection | Press Escape |
 | Layer up | Select + press `+` or `=` |
 | Layer down | Select + press `-` |
+| Zoom in/out | Mouse wheel scroll |
+| Toggle grid | Click "Grid" button in File toolbar |
+| Toggle snap | Click "Snap" button in File toolbar |
+| Import shapes | Click "Import" to merge JSON into canvas |
+
+## Keyboard Shortcuts
+
+| Key | Tool |
+|-----|------|
+| V | Select |
+| R | Rectangle |
+| S | Square |
+| O | Oval |
+| I | Circle |
+| D | Diamond |
+| H | Hexagon |
+| G | Octagon |
+| T | Triangle (Up) |
+| X | Text Label |
+| A | Arrow |
+| W | Two-way Arrow |
 
 ## Color Pickers
 
