@@ -443,6 +443,18 @@ class DiagramScene(QGraphicsScene):
         direction = "forward" if delta > 0 else "backward"
         self.status_message.emit(f"Sent {direction}")
 
+    def _rename_selected(self):
+        """Open the label dialog for the first selected shape or arrow (F2)."""
+        selected = self.selectedItems()
+        if not selected:
+            self.status_message.emit("Nothing selected to rename")
+            return
+        item = selected[0]
+        if isinstance(item, SHAPE_CLASSES):
+            self._add_label_to_shape(item)
+        elif isinstance(item, Arrow):
+            self._add_label_to_arrow(item)
+
     def _add_label_to_shape(self, shape):
         current_text = ""
         if isinstance(shape, DiagramText):
@@ -483,7 +495,9 @@ class DiagramScene(QGraphicsScene):
             self.status_message.emit("Arrow label added")
     
     def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+        if event.key() == Qt.Key_F2:
+            self._rename_selected()
+        elif event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self._delete_selected()
         elif event.key() == Qt.Key_Escape:
             self._arrow_start_shape = None
