@@ -1,0 +1,30 @@
+# Virtual environment
+Lib/
+Scripts/
+pyvenv.cfg
+Include/
+share/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Environment
+.env
+*.log
