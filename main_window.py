@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction, 
+from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction,
                              QActionGroup, QColorDialog, QPushButton, QLabel,
-                             QFontComboBox, QSpinBox, QWidget, QHBoxLayout)
+                             QFontComboBox, QSpinBox, QWidget, QHBoxLayout,
+                             QShortcut)
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QPainter, QColor, QIcon, QPixmap, QPainterPath, QPolygonF, QPen, QBrush, QFont
+from PyQt5.QtGui import (QPainter, QColor, QIcon, QPixmap, QPainterPath,
+                          QPolygonF, QPen, QBrush, QFont, QKeySequence)
 
 from scene import DiagramScene
 from export import ExportManager
@@ -295,53 +297,51 @@ class MainWindow(QMainWindow):
         self.tool_group = QActionGroup(self)
         self.tool_group.setExclusive(True)
         
-        # Shape tools with icons
+        # Shape tools: (mode, tooltip, draw_func, shortcut_key or None)
         tools = [
-            (DiagramScene.MODE_SELECT, "Select (V)", draw_select),
-            (DiagramScene.MODE_RECTANGLE, "Rectangle", draw_rectangle),
-            (DiagramScene.MODE_SQUARE, "Square", draw_square),
-            (DiagramScene.MODE_OVAL, "Oval", draw_oval),
-            (DiagramScene.MODE_CIRCLE, "Circle", draw_circle),
-            (DiagramScene.MODE_DIAMOND, "Diamond", draw_diamond),
-            (DiagramScene.MODE_HEXAGON, "Hexagon", draw_hexagon),
-            (DiagramScene.MODE_OCTAGON, "Octagon", draw_octagon),
-            (DiagramScene.MODE_TRIANGLE, "Triangle (Up)", draw_triangle),
-            (DiagramScene.MODE_TRIANGLE_INVERTED, "Triangle (Down)", draw_triangle_inverted),
-            (DiagramScene.MODE_TRIANGLE_LEFT, "Triangle (Left)", draw_triangle_left),
-            (DiagramScene.MODE_TRIANGLE_RIGHT, "Triangle (Right)", draw_triangle_right),
-            (DiagramScene.MODE_TEXT, "Text Label", draw_text),
+            (DiagramScene.MODE_SELECT, "Select", draw_select, "V"),
+            (DiagramScene.MODE_RECTANGLE, "Rectangle", draw_rectangle, "R"),
+            (DiagramScene.MODE_SQUARE, "Square", draw_square, "S"),
+            (DiagramScene.MODE_OVAL, "Oval", draw_oval, "O"),
+            (DiagramScene.MODE_CIRCLE, "Circle", draw_circle, "I"),
+            (DiagramScene.MODE_DIAMOND, "Diamond", draw_diamond, "D"),
+            (DiagramScene.MODE_HEXAGON, "Hexagon", draw_hexagon, "H"),
+            (DiagramScene.MODE_OCTAGON, "Octagon", draw_octagon, "G"),
+            (DiagramScene.MODE_TRIANGLE, "Triangle (Up)", draw_triangle, "T"),
+            (DiagramScene.MODE_TRIANGLE_INVERTED, "Triangle (Down)", draw_triangle_inverted, None),
+            (DiagramScene.MODE_TRIANGLE_LEFT, "Triangle (Left)", draw_triangle_left, None),
+            (DiagramScene.MODE_TRIANGLE_RIGHT, "Triangle (Right)", draw_triangle_right, None),
+            (DiagramScene.MODE_TEXT, "Text Label", draw_text, "X"),
+            (DiagramScene.MODE_ARROW, "Arrow", draw_arrow, "A"),
+            (DiagramScene.MODE_ARROW_BIDIR, "Two-way Arrow", draw_arrow_bidir, "W"),
         ]
-        
-        for mode, tooltip, draw_func in tools:
+
+        self._tool_actions = {}  # mode -> QAction for shortcut lookup
+
+        for mode, tooltip, draw_func, shortcut in tools:
             icon = create_icon(draw_func)
             action = QAction(icon, "", self)
             action.setCheckable(True)
-            action.setToolTip(tooltip)
+            # Show shortcut in tooltip if one exists
+            tip = f"{tooltip} ({shortcut})" if shortcut else tooltip
+            action.setToolTip(tip)
             action.triggered.connect(lambda checked, m=mode: self.scene.set_mode(m))
             self.tool_group.addAction(action)
             toolbar.addAction(action)
-            
+            self._tool_actions[mode] = action
+
             if mode == DiagramScene.MODE_RECTANGLE:
                 action.setChecked(True)
-        
-        toolbar.addSeparator()
-        
-        # Arrow tools
-        arrow_icon = create_icon(draw_arrow)
-        arrow_action = QAction(arrow_icon, "", self)
-        arrow_action.setCheckable(True)
-        arrow_action.setToolTip("Arrow (click source, then target)")
-        arrow_action.triggered.connect(lambda: self.scene.set_mode(DiagramScene.MODE_ARROW))
-        self.tool_group.addAction(arrow_action)
-        toolbar.addAction(arrow_action)
-        
-        bidir_icon = create_icon(draw_arrow_bidir)
-        bidir_action = QAction(bidir_icon, "", self)
-        bidir_action.setCheckable(True)
-        bidir_action.setToolTip("Two-way arrow")
-        bidir_action.triggered.connect(lambda: self.scene.set_mode(DiagramScene.MODE_ARROW_BIDIR))
-        self.tool_group.addAction(bidir_action)
-        toolbar.addAction(bidir_action)
+
+            # Bind keyboard shortcut
+            if shortcut:
+                sc = QShortcut(QKeySequence(shortcut), self)
+                sc.activated.connect(
+                    lambda m=mode: self._activate_tool(m))
+
+            # Add separator after text tool (before arrows)
+            if mode == DiagramScene.MODE_TEXT:
+                toolbar.addSeparator()
         
         toolbar.addSeparator()
         
@@ -431,6 +431,13 @@ class MainWindow(QMainWindow):
         clear_action.triggered.connect(self.scene.clear_all)
         toolbar.addAction(clear_action)
     
+    def _activate_tool(self, mode):
+        """Switch to a tool mode via keyboard shortcut."""
+        action = self._tool_actions.get(mode)
+        if action:
+            action.setChecked(True)
+            self.scene.set_mode(mode)
+
     def _pick_color(self):
         current = self.color_button.get_color()
         color = QColorDialog.getColor(current, self, "Choose Fill Color")
