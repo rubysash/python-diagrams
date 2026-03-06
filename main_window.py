@@ -424,6 +424,21 @@ class MainWindow(QMainWindow):
         clear_action.triggered.connect(self.scene.clear_all)
         file_tb.addAction(clear_action)
 
+        file_tb.addSeparator()
+
+        # Grid and snap toggles
+        grid_action = QAction("Grid", self)
+        grid_action.setCheckable(True)
+        grid_action.setToolTip("Toggle grid overlay")
+        grid_action.triggered.connect(self.scene.toggle_grid)
+        file_tb.addAction(grid_action)
+
+        snap_action = QAction("Snap", self)
+        snap_action.setCheckable(True)
+        snap_action.setToolTip("Toggle snap-to-grid")
+        snap_action.triggered.connect(self.scene.toggle_snap)
+        file_tb.addAction(snap_action)
+
     def _add_tool_actions(self, toolbar, tools, default_mode=None):
         """Add checkable tool actions to a toolbar with optional shortcuts."""
         for mode, tooltip, draw_func, shortcut in tools:

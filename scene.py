@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QGraphicsScene, QInputDialog
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt, pyqtSignal, QRectF
+from PyQt5.QtGui import QColor, QPen
 
 from shapes import (
     DiagramRect, DiagramSquare, DiagramOval, DiagramCircle,
@@ -89,6 +89,10 @@ class DiagramScene(QGraphicsScene):
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
         self._clipboard = None
+        # Grid settings
+        self.grid_size = 20
+        self.grid_visible = False
+        self.snap_to_grid = False
         # Undo/redo stacks store full scene snapshots
         self._undo_stack = []
         self._redo_stack = []
@@ -101,6 +105,50 @@ class DiagramScene(QGraphicsScene):
             'underline': False
         }
     
+    def drawBackground(self, painter, rect):
+        """Draw grid overlay when enabled."""
+        super().drawBackground(painter, rect)
+        if not self.grid_visible:
+            return
+
+        grid = self.grid_size
+        pen = QPen(QColor("#d0d0d0"), 0.5)
+        painter.setPen(pen)
+
+        # Calculate grid lines within the visible rect
+        left = int(rect.left()) - (int(rect.left()) % grid)
+        top = int(rect.top()) - (int(rect.top()) % grid)
+
+        # Vertical lines
+        x = left
+        while x <= rect.right():
+            painter.drawLine(x, int(rect.top()), x, int(rect.bottom()))
+            x += grid
+
+        # Horizontal lines
+        y = top
+        while y <= rect.bottom():
+            painter.drawLine(int(rect.left()), y, int(rect.right()), y)
+            y += grid
+
+    def snap_position(self, pos):
+        """Snap a QPointF to the nearest grid point."""
+        if not self.snap_to_grid:
+            return pos
+        grid = self.grid_size
+        x = round(pos.x() / grid) * grid
+        y = round(pos.y() / grid) * grid
+        return type(pos)(x, y)
+
+    def toggle_grid(self, visible):
+        """Show or hide the grid overlay."""
+        self.grid_visible = visible
+        self.update()
+
+    def toggle_snap(self, enabled):
+        """Enable or disable snap-to-grid."""
+        self.snap_to_grid = enabled
+
     def set_mode(self, mode):
         self.current_mode = mode
         self._arrow_start_shape = None
@@ -311,7 +359,17 @@ class DiagramScene(QGraphicsScene):
                     self.clearSelection()
 
         super().mousePressEvent(event)
-    
+
+    def mouseReleaseEvent(self, event):
+        """Snap selected shapes to grid after a drag."""
+        super().mouseReleaseEvent(event)
+        if self.snap_to_grid:
+            for item in self.selectedItems():
+                if isinstance(item, SHAPE_CLASSES):
+                    snapped = self.snap_position(item.pos())
+                    if snapped != item.pos():
+                        item.setPos(snapped)
+
     def _add_label_to_shape(self, shape):
         current_text = ""
         if isinstance(shape, DiagramText):
