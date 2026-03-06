@@ -1,0 +1,30 @@
+# Virtual environment
+Lib/
+Scripts/
+Include/
+share/
+pyvenv.cfg
+
+# Git
+.git/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Binary/image assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.dll
+*.exe
+*.pyd
