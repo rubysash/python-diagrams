@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "shapes": [
+    {
+      "id": 0,
+      "type": "DiagramRect",
+      "x": 917.0,
+      "y": 1389.0,
+      "width": 181.0,
+      "height": 60.0,
+      "color": "#ffaa00",
+      "label": "Expert Bot B",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 1,
+      "type": "DiagramRect",
+      "x": 1292.0,
+      "y": 1201.0,
+      "width": 181.0,
+      "height": 60.0,
+      "color": "#ffaa00",
+      "label": "Expert Bot C",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 2,
+      "type": "DiagramOval",
+      "x": 929.0,
+      "y": 1244.0,
+      "width": 158.0,
+      "height": 74.0,
+      "color": "#aa55ff",
+      "label": "AI Splitter",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 3,
+      "type": "DiagramRect",
+      "x": 549.0,
+      "y": 1196.0,
+      "width": 181.0,
+      "height": 60.0,
+      "color": "#ffaa00",
+      "label": "Expert Bot A",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 4,
+      "type": "DiagramRect",
+      "x": 711.0,
+      "y": 932.0,
+      "width": 277.0,
+      "height": 61.0,
+      "color": "#aa55ff",
+      "label": "AI Capture Phone",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 5,
+      "type": "DiagramRect",
+      "x": 1053.0,
+      "y": 939.0,
+      "width": 277.0,
+      "height": 61.0,
+      "color": "#aa55ff",
+      "label": "AI Capture Email",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 6,
+      "type": "DiagramRect",
+      "x": 1053.0,
+      "y": 849.0,
+      "width": 277.0,
+      "height": 61.0,
+      "color": "#aa55ff",
+      "label": "AI Capture First Name",
+      "label_color": "#333333",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 7,
+      "type": "DiagramRect",
+      "x": 714.0,
+      "y": 855.0,
+      "width": 277.0,
+      "height": 61.0,
+      "color": "#000000",
+      "label": "Add Tag: Activate Bot",
+      "label_color": "#ffffff",
+      "label_font_size": 14,
+      "z": 0.0
+    },
+    {
+      "id": 8,
+      "type": "DiagramRect",
+      "x": 801.0,
+      "y": 771.0,
+      "width": 100,
+      "height": 60,
+      "color": "#000000",
+      "label": "Trigger",
+      "label_color": "#ffffff",
+      "label_font_size": 14,
+      "z": 0.0
+    }
+  ],
+  "arrows": [
+    {
+      "start_id": 5,
+      "end_id": 4,
+      "bidirectional": false,
+      "color": "#aa55ff",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 6,
+      "end_id": 5,
+      "bidirectional": false,
+      "color": "#aa55ff",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 7,
+      "end_id": 6,
+      "bidirectional": false,
+      "color": "#000000",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 8,
+      "end_id": 7,
+      "bidirectional": false,
+      "color": "#000000",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 2,
+      "end_id": 1,
+      "bidirectional": false,
+      "color": "#ffaa00",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 2,
+      "end_id": 0,
+      "bidirectional": false,
+      "color": "#ffaa00",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    },
+    {
+      "start_id": 2,
+      "end_id": 3,
+      "bidirectional": false,
+      "color": "#ffaa00",
+      "label": null,
+      "label_color": "#333333",
+      "label_font_size": 9
+    }
+  ]
+}
