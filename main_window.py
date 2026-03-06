@@ -213,12 +213,33 @@ class ColorButton(QPushButton):
 
 
 class DiagramView(QGraphicsView):
-    """Custom graphics view with proper focus handling for keyboard events."""
+    """Custom graphics view with zoom, focus handling, and additive rubber band."""
+
+    ZOOM_FACTOR = 1.15
+    ZOOM_MIN = 0.1
+    ZOOM_MAX = 10.0
 
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         self.setFocusPolicy(Qt.StrongFocus)
         self._pre_rubber_selection = set()
+        self._current_zoom = 1.0
+
+    def wheelEvent(self, event):
+        """Zoom in/out with mouse wheel."""
+        if event.angleDelta().y() > 0:
+            factor = self.ZOOM_FACTOR
+        else:
+            factor = 1.0 / self.ZOOM_FACTOR
+
+        # Clamp zoom level to min/max bounds
+        new_zoom = self._current_zoom * factor
+        if new_zoom < self.ZOOM_MIN or new_zoom > self.ZOOM_MAX:
+            return
+
+        self._current_zoom = new_zoom
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.scale(factor, factor)
 
     def mousePressEvent(self, event):
         self.setFocus()
