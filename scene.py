@@ -371,7 +371,7 @@ class DiagramScene(QGraphicsScene):
                     self.addItem(new_arrow)
                     self._arrow_start_shape.setSelected(False)
                     self._arrow_start_shape = None
-                    self.status_message.emit("Arrow created")
+                    self.status_message.emit("Arrow created — double-click arrow to add bend points")
                 else:
                     self._arrow_start_shape.setSelected(False)
                     self._arrow_start_shape = None

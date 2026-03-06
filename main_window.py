@@ -616,6 +616,15 @@ class MainWindow(QMainWindow):
             <tr><td>-</td><td>Layer down (send backward)</td></tr>
         </table>
 
+        <h3>Arrows &amp; Bend Points</h3>
+        <table>
+            <tr><th>Action</th><th>How</th></tr>
+            <tr><td>Add bend point</td><td>Double-click an arrow segment</td></tr>
+            <tr><td>Move bend point</td><td>Drag the blue handle</td></tr>
+            <tr><td>Remove bend point</td><td>Double-click handle, or right-click → Remove</td></tr>
+            <tr><td>Add via menu</td><td>Right-click arrow → Add Bend Point</td></tr>
+        </table>
+
         <h3>File</h3>
         <table>
             <tr><th>Shortcut</th><th>Action</th></tr>
