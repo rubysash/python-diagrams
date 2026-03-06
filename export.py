@@ -145,7 +145,9 @@ class ExportManager:
                         'color': item.arrow_color.name(),
                         'label': item.label.text() if item.label else None,
                         'label_color': item.label_color.name() if hasattr(item, 'label_color') else '#333333',
-                        'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 9
+                        'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 9,
+                        'line_style': item.line_style,
+                        'line_width': item.line_width,
                     }
                     data['arrows'].append(arrow_data)
         
@@ -196,7 +198,9 @@ class ExportManager:
                     shape_map[start_id],
                     shape_map[end_id],
                     bidirectional=arrow_data.get('bidirectional', False),
-                    color=arrow_data.get('color', '#333333')
+                    color=arrow_data.get('color', '#333333'),
+                    line_style=arrow_data.get('line_style', 'Solid'),
+                    line_width=arrow_data.get('line_width', 2),
                 )
                 self.scene.addItem(arrow)
                 

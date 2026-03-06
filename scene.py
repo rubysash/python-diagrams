@@ -606,6 +606,8 @@ class DiagramScene(QGraphicsScene):
                     'label': item.label.text() if item.label else None,
                     'label_color': item.label_color.name(),
                     'label_font_size': item.label_font_size,
+                    'line_style': item.line_style,
+                    'line_width': item.line_width,
                 })
 
         return {'shapes': shape_list, 'arrows': arrow_list}
@@ -674,7 +676,9 @@ class DiagramScene(QGraphicsScene):
                 continue
             arrow = Arrow(start, end,
                           bidirectional=arrow_data.get('bidirectional', False),
-                          color=arrow_data.get('color', '#333333'))
+                          color=arrow_data.get('color', '#333333'),
+                          line_style=arrow_data.get('line_style', 'Solid'),
+                          line_width=arrow_data.get('line_width', 2))
             self.addItem(arrow)
             if 'label_color' in arrow_data:
                 arrow.set_label_color(arrow_data['label_color'])
@@ -743,6 +747,8 @@ class DiagramScene(QGraphicsScene):
                     'label': item.label.text() if item.label else None,
                     'label_color': item.label_color.name(),
                     'label_font_size': item.label_font_size,
+                    'line_style': item.line_style,
+                    'line_width': item.line_width,
                 })
         return {'shapes': shape_list, 'arrows': arrow_list}
 

@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction,
                              QActionGroup, QColorDialog, QPushButton, QLabel,
-                             QFontComboBox, QSpinBox, QWidget, QHBoxLayout,
-                             QShortcut)
+                             QFontComboBox, QSpinBox, QComboBox, QWidget,
+                             QHBoxLayout, QShortcut)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import (QPainter, QColor, QIcon, QPixmap, QPainterPath,
                           QPolygonF, QPen, QBrush, QFont, QKeySequence)
@@ -337,6 +337,26 @@ class MainWindow(QMainWindow):
         ]
         self._add_tool_actions(arrow_tb, arrow_tools)
 
+        # Line style dropdown for arrows
+        arrow_tb.addSeparator()
+        arrow_tb.addWidget(QLabel(" Style:"))
+        self.line_style_combo = QComboBox()
+        self.line_style_combo.addItems(["Solid", "Dashed", "Dotted", "Dash-Dot"])
+        self.line_style_combo.setToolTip("Arrow line style")
+        self.line_style_combo.setMaximumWidth(90)
+        self.line_style_combo.currentTextChanged.connect(self._on_line_style_changed)
+        arrow_tb.addWidget(self.line_style_combo)
+
+        # Line width dropdown for arrows
+        arrow_tb.addWidget(QLabel(" Width:"))
+        self.line_width_combo = QComboBox()
+        self.line_width_combo.addItems(["1", "2", "3", "4", "5"])
+        self.line_width_combo.setCurrentText("2")
+        self.line_width_combo.setToolTip("Arrow line width")
+        self.line_width_combo.setMaximumWidth(50)
+        self.line_width_combo.currentTextChanged.connect(self._on_line_width_changed)
+        arrow_tb.addWidget(self.line_width_combo)
+
         # --- Format toolbar ---
         fmt_tb = QToolBar("Format")
         fmt_tb.setIconSize(icon_size)
@@ -527,3 +547,18 @@ class MainWindow(QMainWindow):
     def _on_underline_changed(self, checked):
         """Handle underline toggle."""
         self.scene.set_text_settings(underline=checked)
+
+    def _on_line_style_changed(self, style_name):
+        """Apply line style to selected arrows."""
+        from arrows import Arrow
+        for item in self.scene.selectedItems():
+            if isinstance(item, Arrow):
+                item.set_line_style(style_name)
+
+    def _on_line_width_changed(self, width_text):
+        """Apply line width to selected arrows."""
+        from arrows import Arrow
+        width = int(width_text)
+        for item in self.scene.selectedItems():
+            if isinstance(item, Arrow):
+                item.set_line_width(width)

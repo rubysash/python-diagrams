@@ -30,21 +30,33 @@ class ArrowHead(QGraphicsPolygonItem):
         self.setBrush(QBrush(QColor(color)))
 
 
+# Map user-facing style names to Qt pen styles
+LINE_STYLES = {
+    'Solid': Qt.SolidLine,
+    'Dashed': Qt.DashLine,
+    'Dotted': Qt.DotLine,
+    'Dash-Dot': Qt.DashDotLine,
+}
+
+
 class Arrow(QGraphicsLineItem):
     """Arrow connecting two shapes."""
-    
-    def __init__(self, start_shape, end_shape, bidirectional=False, color="#333333"):
+
+    def __init__(self, start_shape, end_shape, bidirectional=False,
+                 color="#333333", line_style='Solid', line_width=2):
         super().__init__()
-        
+
         self.start_shape = start_shape
         self.end_shape = end_shape
         self.bidirectional = bidirectional
         self.arrow_color = QColor(color)
+        self.line_style = line_style    # 'Solid', 'Dashed', 'Dotted', 'Dash-Dot'
+        self.line_width = line_width    # pixel width
         self.label = None
         self.label_color = QColor("#333333")  # Default label color
         self.label_font_size = 9  # Default label font size
-        
-        self.setPen(QPen(self.arrow_color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+
+        self._update_pen()
         self.setFlags(self.ItemIsSelectable)
         self.setZValue(-1)
         
@@ -129,23 +141,44 @@ class Arrow(QGraphicsLineItem):
         
         self.center_label()
     
+    def _update_pen(self):
+        """Rebuild the pen from current color, width, and style."""
+        qt_style = LINE_STYLES.get(self.line_style, Qt.SolidLine)
+        self.setPen(QPen(self.arrow_color, self.line_width, qt_style,
+                         Qt.RoundCap, Qt.RoundJoin))
+
     def set_color(self, color):
         self.arrow_color = QColor(color)
-        self.setPen(QPen(self.arrow_color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        self._update_pen()
         self.end_head.set_color(color)
         if self.start_head:
             self.start_head.set_color(color)
-    
+
+    def set_line_style(self, style_name):
+        """Set line style by name: 'Solid', 'Dashed', 'Dotted', 'Dash-Dot'."""
+        self.line_style = style_name
+        self._update_pen()
+
+    def set_line_width(self, width):
+        """Set line width in pixels."""
+        self.line_width = width
+        self._update_pen()
+
     def detach(self):
         if self.start_shape:
             self.start_shape.remove_arrow(self)
         if self.end_shape:
             self.end_shape.remove_arrow(self)
-    
+
     def paint(self, painter, option, widget=None):
         if self.isSelected():
-            pen = QPen(QColor("#ff6b6b"), 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            # Highlight selected arrows but keep the same style
+            qt_style = LINE_STYLES.get(self.line_style, Qt.SolidLine)
+            pen = QPen(QColor("#ff6b6b"), self.line_width + 1, qt_style,
+                       Qt.RoundCap, Qt.RoundJoin)
         else:
-            pen = QPen(self.arrow_color, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            qt_style = LINE_STYLES.get(self.line_style, Qt.SolidLine)
+            pen = QPen(self.arrow_color, self.line_width, qt_style,
+                       Qt.RoundCap, Qt.RoundJoin)
         self.setPen(pen)
         super().paint(painter, option, widget)
