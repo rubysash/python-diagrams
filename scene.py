@@ -90,6 +90,7 @@ class DiagramScene(QGraphicsScene):
         self.current_label_color = QColor("#333333")  # Separate label color
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
+        self._arrow_start_dock_target = None
         self._clipboard = None
         # Track positions before a drag to detect actual moves
         self._drag_start_positions = None
@@ -158,8 +159,20 @@ class DiagramScene(QGraphicsScene):
 
     def set_mode(self, mode):
         self.current_mode = mode
-        self._arrow_start_shape = None
+        self._cancel_arrow_creation()
         self.status_message.emit(f"Tool: {mode}")
+
+    def _cancel_arrow_creation(self):
+        """Clean up in-progress arrow creation state."""
+        if self._arrow_start_shape:
+            self._arrow_start_shape.setSelected(False)
+            # Remove orphan anchor if it was just created (no arrows connected)
+            if (isinstance(self._arrow_start_shape, AnchorPoint)
+                    and not self._arrow_start_shape.arrows):
+                self.removeItem(self._arrow_start_shape)
+        self._arrow_start_shape = None
+        self._arrow_start_dock_target = None
+        self.status_message.emit("Cancelled")
     
     def set_color(self, color):
         self.current_color = QColor(color)
@@ -249,6 +262,26 @@ class DiagramScene(QGraphicsScene):
             if isinstance(item, ResizeHandle):
                 return item
         return None
+
+    def find_nearest_shape(self, pos, max_distance=30, exclude=None):
+        """Find the nearest non-anchor shape within max_distance of pos."""
+        import math
+        best = None
+        best_dist = max_distance
+        for item in self.items():
+            if item is exclude or isinstance(item, AnchorPoint):
+                continue
+            if not hasattr(item, 'get_connection_point'):
+                continue
+            # Distance from pos to nearest point on bounding rect
+            rect = item.sceneBoundingRect()
+            cx = max(rect.left(), min(pos.x(), rect.right()))
+            cy = max(rect.top(), min(pos.y(), rect.bottom()))
+            dist = math.hypot(pos.x() - cx, pos.y() - cy)
+            if dist < best_dist:
+                best_dist = dist
+                best = item
+        return best
 
     def get_bend_handle_at(self, pos):
         """Check if there's a bend handle at the given position."""
@@ -364,37 +397,58 @@ class DiagramScene(QGraphicsScene):
                 return
         
         if event.button() == Qt.LeftButton and self.current_mode in (self.MODE_ARROW,):
-            # Target is a shape/anchor under click, or create new anchor on empty space
-            target = shape
+            # All endpoints are anchors; dock to shape if clicking on one
+            clicked_shape = shape  # Could be a shape, an anchor, or None
 
             if self._arrow_start_shape is None:
-                # Starting a new arrow
-                if target is None:
-                    target = AnchorPoint(pos.x(), pos.y())
-                    self.addItem(target)
-                self._arrow_start_shape = target
-                target.setSelected(True)
+                # Starting a new line — store shape to dock later (after arrow exists)
+                if isinstance(clicked_shape, AnchorPoint):
+                    self._arrow_start_shape = clicked_shape
+                    self._arrow_start_dock_target = None
+                else:
+                    anchor = AnchorPoint(pos.x(), pos.y())
+                    self.addItem(anchor)
+                    self._arrow_start_shape = anchor
+                    # Remember shape to dock to after arrow is created
+                    self._arrow_start_dock_target = clicked_shape
+                self._arrow_start_shape.setSelected(True)
                 self.status_message.emit("Click destination (shape or empty space)")
-            elif target == self._arrow_start_shape:
+            elif clicked_shape is self._arrow_start_shape:
                 # Clicked same item — cancel
-                self._arrow_start_shape.setSelected(False)
-                self._arrow_start_shape = None
-                self.status_message.emit("Cancelled")
+                self._cancel_arrow_creation()
+            elif (clicked_shape is not None
+                  and getattr(self, '_arrow_start_dock_target', None) is clicked_shape):
+                # Clicked the shape the start anchor targets — cancel
+                self._cancel_arrow_creation()
             else:
-                # Creating the arrow
-                if target is None:
-                    target = AnchorPoint(pos.x(), pos.y())
-                    self.addItem(target)
+                # Creating the line
+                if isinstance(clicked_shape, AnchorPoint):
+                    end_anchor = clicked_shape
+                    end_dock_target = None
+                else:
+                    end_anchor = AnchorPoint(pos.x(), pos.y())
+                    self.addItem(end_anchor)
+                    end_dock_target = clicked_shape
+
                 self.save_undo()
                 new_arrow = Arrow(
-                    self._arrow_start_shape, target,
+                    self._arrow_start_shape, end_anchor,
                     color=self.current_color.name(),
                     start_cap=self.current_start_cap,
                     end_cap=self.current_end_cap)
                 self.addItem(new_arrow)
+
+                # Now that arrow exists, dock anchors to their target shapes
+                start_dock = getattr(self, '_arrow_start_dock_target', None)
+                if start_dock and isinstance(self._arrow_start_shape, AnchorPoint):
+                    self._arrow_start_shape.dock_to(start_dock)
+                if end_dock_target:
+                    end_anchor.dock_to(end_dock_target)
+
                 self._arrow_start_shape.setSelected(False)
                 self._arrow_start_shape = None
-                self.status_message.emit("Arrow created — double-click arrow to add bend points")
+                self._arrow_start_dock_target = None
+                self.status_message.emit("Line created — drag endpoints to move, double-click to add bends")
             return
         
         if event.button() == Qt.LeftButton:
@@ -636,7 +690,7 @@ class DiagramScene(QGraphicsScene):
         elif event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self._delete_selected()
         elif event.key() == Qt.Key_Escape:
-            self._arrow_start_shape = None
+            self._cancel_arrow_creation()
             self.clearSelection()
             self.status_message.emit("Selection cleared")
         elif event.key() in (Qt.Key_Plus, Qt.Key_Equal):
@@ -863,7 +917,14 @@ class DiagramScene(QGraphicsScene):
         self._arrow_start_shape = None
         # Reuse paste logic with zero offset to recreate items in place
         self._paste_data(data, offset_x=0, offset_y=0)
+        self._snap_all_anchors()
         self.clearSelection()
+
+    def _snap_all_anchors(self):
+        """Try to snap all AnchorPoints to nearby shapes (used after load/undo)."""
+        for item in self.items():
+            if isinstance(item, AnchorPoint):
+                item.try_snap()
 
     def save_undo(self):
         """Push current state onto the undo stack. Call before mutating actions."""
@@ -919,6 +980,17 @@ class DiagramScene(QGraphicsScene):
 
         if save_undo:
             self.save_undo()
+
+        # Undock anchors docked to shapes being deleted, and undock deleted anchors
+        items_set = set(items)
+        for item in items:
+            if isinstance(item, AnchorPoint) and item.docked_shape:
+                item.undock()
+        for scene_item in self.items():
+            if isinstance(scene_item, AnchorPoint) and scene_item not in items_set:
+                if scene_item.docked_shape in items_set:
+                    scene_item.undock()
+
         for item in items:
             if hasattr(item, 'arrows'):
                 for arrow in item.arrows[:]:

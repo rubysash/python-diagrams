@@ -67,16 +67,15 @@ class ArrowHead(QGraphicsPolygonItem):
 
 
 class AnchorPoint(QGraphicsEllipseItem):
-    """Free-floating draggable endpoint for arrows not attached to shapes."""
+    """Draggable endpoint for arrows. Can dock to shape edges or float freely."""
 
     ANCHOR_SIZE = 8
+    SNAP_DISTANCE = 30  # Max distance to snap to a shape edge
 
     def __init__(self, x, y):
         half = self.ANCHOR_SIZE / 2
         super().__init__(-half, -half, self.ANCHOR_SIZE, self.ANCHOR_SIZE)
         self.setPos(x, y)
-        self.setBrush(QBrush(QColor("#aaaaaa")))
-        self.setPen(QPen(QColor("#666666"), 1))
         self.setFlags(
             self.ItemIsMovable |
             self.ItemIsSelectable |
@@ -85,6 +84,7 @@ class AnchorPoint(QGraphicsEllipseItem):
         self.setZValue(5)
         self.setCursor(Qt.SizeAllCursor)
         self.arrows = []
+        self.docked_shape = None  # Shape this anchor is snapped to
 
     def shape(self):
         """Wider hit area for easier clicking."""
@@ -95,10 +95,19 @@ class AnchorPoint(QGraphicsEllipseItem):
         return path
 
     def get_center(self):
+        if self.docked_shape:
+            return self.docked_shape.get_center()
         return self.scenePos()
 
     def get_connection_point(self, target_pos):
-        """Anchor is a single point, so connection point is the center."""
+        """When docked, delegate to the shape for proper edge snapping."""
+        if self.docked_shape:
+            pt = self.docked_shape.get_connection_point(target_pos)
+            # Move anchor dot to the edge point (without triggering itemChange)
+            self.setFlag(self.ItemSendsGeometryChanges, False)
+            self.setPos(pt)
+            self.setFlag(self.ItemSendsGeometryChanges, True)
+            return pt
         return self.scenePos()
 
     def add_arrow(self, arrow):
@@ -109,17 +118,71 @@ class AnchorPoint(QGraphicsEllipseItem):
         if arrow in self.arrows:
             self.arrows.remove(arrow)
 
+    def dock_to(self, shape):
+        """Snap this anchor to a shape's edge. Arrow follows the shape."""
+        if self.docked_shape is shape:
+            return
+        self.undock()
+        self.docked_shape = shape
+        # Register our arrows with the shape so it updates them when it moves
+        for arrow in self.arrows:
+            shape.add_arrow(arrow)
+        # Trigger arrow recalculation to position anchor on edge
+        for arrow in self.arrows:
+            arrow.update_position()
+
+    def undock(self):
+        """Detach from the docked shape."""
+        if not self.docked_shape:
+            return
+        # Unregister our arrows from the shape
+        for arrow in self.arrows:
+            try:
+                self.docked_shape.remove_arrow(arrow)
+            except (RuntimeError, AttributeError):
+                pass
+        self.docked_shape = None
+
+    def try_snap(self):
+        """Check nearby shapes and dock/undock as appropriate."""
+        scene = self.scene()
+        if not scene or not hasattr(scene, 'find_nearest_shape'):
+            return
+        shape = scene.find_nearest_shape(self.scenePos(), self.SNAP_DISTANCE, exclude=self)
+        if shape:
+            self.dock_to(shape)
+        elif self.docked_shape:
+            self.undock()
+
     def itemChange(self, change, value):
         if change == self.ItemPositionHasChanged:
             for arrow in self.arrows:
                 arrow.update_position()
         return super().itemChange(change, value)
 
+    def mousePressEvent(self, event):
+        """Undock before dragging so anchor moves freely."""
+        if event.button() == Qt.LeftButton:
+            if self.docked_shape:
+                self.undock()
+            scene = self.scene()
+            if scene and hasattr(scene, 'save_undo'):
+                scene.save_undo()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Try to snap to a nearby shape after drag ends."""
+        super().mouseReleaseEvent(event)
+        self.try_snap()
+
     def paint(self, painter, option, widget=None):
-        """Draw with highlight when selected."""
+        """Draw with different colors: gray=free, green=docked, blue=selected."""
         if self.isSelected():
             self.setBrush(QBrush(QColor(74, 144, 217, 120)))
             self.setPen(QPen(QColor("#4a90d9"), 1.5))
+        elif self.docked_shape:
+            self.setBrush(QBrush(QColor(46, 204, 113, 160)))
+            self.setPen(QPen(QColor("#27ae60"), 1.5))
         else:
             self.setBrush(QBrush(QColor("#aaaaaa")))
             self.setPen(QPen(QColor("#666666"), 1))

@@ -250,6 +250,10 @@ class ExportManager:
                 if arrow_data.get('label'):
                     arrow.add_label(arrow_data['label'])
         
+        # Auto-snap anchors to nearby shapes after load
+        if hasattr(self.scene, '_snap_all_anchors'):
+            self.scene._snap_all_anchors()
+
         # Force scene to update its internal index and refresh
         self.scene.setSceneRect(self.scene.sceneRect())
         self.scene.update()
