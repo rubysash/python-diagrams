@@ -6,6 +6,7 @@ from PyQt5.QtGui import QPainter, QColor, QIcon, QPixmap, QPainterPath, QPolygon
 
 from scene import DiagramScene
 from export import ExportManager
+from config import APP_NAME, VERSION
 
 
 def create_icon(draw_func, size=24, color="#555555"):
@@ -169,7 +170,7 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Diagram Builder")
+        self.setWindowTitle(f"{APP_NAME} v{VERSION}")
         self.setGeometry(100, 100, 1200, 800)
         
         self.scene = DiagramScene(self)

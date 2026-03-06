@@ -9,6 +9,7 @@
 - **Always git commit before making changes** — create a checkpoint commit of the current state before starting modifications
 - Use descriptive commit messages explaining the "why"
 - Never force-push or use destructive git operations without explicit approval
+- **Bump the version** in `config.py` on every commit (use semantic versioning: patch for fixes, minor for features, major for breaking changes)
 
 ## Code Standards
 - Follow **PEP 8** style guidelines strictly
