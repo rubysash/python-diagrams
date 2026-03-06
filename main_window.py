@@ -401,9 +401,14 @@ class MainWindow(QMainWindow):
         file_tb.addAction(save_action)
 
         load_action = QAction("Load", self)
-        load_action.setToolTip("Load diagram from JSON")
+        load_action.setToolTip("Load diagram from JSON (replaces current)")
         load_action.triggered.connect(lambda: self.export_manager.load_json(self))
         file_tb.addAction(load_action)
+
+        import_action = QAction("Import", self)
+        import_action.setToolTip("Import shapes from JSON (merges into current canvas)")
+        import_action.triggered.connect(lambda: self.export_manager.import_json(self))
+        file_tb.addAction(import_action)
 
         file_tb.addSeparator()
 

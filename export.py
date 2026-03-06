@@ -263,6 +263,33 @@ class ExportManager:
             QMessageBox.critical(parent, "Error", f"Failed to load: {e}")
             return False
     
+    def import_json(self, parent=None):
+        """Import shapes from a JSON file into the current canvas (merge, no clear)."""
+        filepath, _ = QFileDialog.getOpenFileName(
+            parent, "Import Diagram", "", "Diagram Files (*.json)"
+        )
+
+        if not filepath:
+            return False
+
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+
+            # Use the scene's paste_data with zero offset to add items in place
+            self.scene.save_undo()
+            count = self.scene._paste_data(data, offset_x=0, offset_y=0)
+            QMessageBox.information(parent, "Import",
+                                    f"Imported {count} item(s) from {filepath}")
+            return True
+
+        except json.JSONDecodeError as e:
+            QMessageBox.critical(parent, "Error", f"Invalid JSON file: {e}")
+            return False
+        except Exception as e:
+            QMessageBox.critical(parent, "Error", f"Failed to import: {e}")
+            return False
+
     def export_svg(self, parent=None):
         """Export scene to SVG file."""
         export_rect = self._get_export_rect()
