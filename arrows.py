@@ -6,30 +6,124 @@ from PyQt5.QtGui import (QPen, QBrush, QColor, QPolygonF, QFont,
                           QPainterPath, QPainterPathStroker)
 
 
+# Valid cap styles for arrow endpoints
+CAP_STYLES = ('none', 'arrow', 'ball')
+
+
 class ArrowHead(QGraphicsPolygonItem):
-    """Arrowhead triangle."""
+    """Visual cap at an arrow endpoint: arrow triangle, ball, or nothing."""
 
     ARROW_SIZE = 12
+    BALL_RADIUS = 4
+    BALL_SEGMENTS = 16  # Polygon vertices to approximate a circle
 
-    def __init__(self, parent=None):
+    def __init__(self, style='arrow', parent=None):
         super().__init__(parent)
+        self._style = style
         self.setBrush(QBrush(QColor("#333333")))
         self.setPen(QPen(Qt.NoPen))
 
+    @property
+    def style(self):
+        return self._style
+
+    @style.setter
+    def style(self, value):
+        self._style = value
+
     def update_position(self, line_end, angle):
-        p1 = line_end
+        """Redraw the cap at line_end oriented by angle."""
+        if self._style == 'arrow':
+            self._draw_arrow(line_end, angle)
+        elif self._style == 'ball':
+            self._draw_ball(line_end)
+        else:
+            # 'none' — empty polygon hides the cap
+            self.setPolygon(QPolygonF())
+
+    def _draw_arrow(self, tip, angle):
+        p1 = tip
         p2 = QPointF(
-            line_end.x() - self.ARROW_SIZE * math.cos(angle - math.pi / 6),
-            line_end.y() - self.ARROW_SIZE * math.sin(angle - math.pi / 6)
+            tip.x() - self.ARROW_SIZE * math.cos(angle - math.pi / 6),
+            tip.y() - self.ARROW_SIZE * math.sin(angle - math.pi / 6)
         )
         p3 = QPointF(
-            line_end.x() - self.ARROW_SIZE * math.cos(angle + math.pi / 6),
-            line_end.y() - self.ARROW_SIZE * math.sin(angle + math.pi / 6)
+            tip.x() - self.ARROW_SIZE * math.cos(angle + math.pi / 6),
+            tip.y() - self.ARROW_SIZE * math.sin(angle + math.pi / 6)
         )
         self.setPolygon(QPolygonF([p1, p2, p3]))
 
+    def _draw_ball(self, center):
+        r = self.BALL_RADIUS
+        points = []
+        for i in range(self.BALL_SEGMENTS):
+            a = 2 * math.pi * i / self.BALL_SEGMENTS
+            points.append(QPointF(center.x() + r * math.cos(a),
+                                  center.y() + r * math.sin(a)))
+        self.setPolygon(QPolygonF(points))
+
     def set_color(self, color):
         self.setBrush(QBrush(QColor(color)))
+
+
+class AnchorPoint(QGraphicsEllipseItem):
+    """Free-floating draggable endpoint for arrows not attached to shapes."""
+
+    ANCHOR_SIZE = 8
+
+    def __init__(self, x, y):
+        half = self.ANCHOR_SIZE / 2
+        super().__init__(-half, -half, self.ANCHOR_SIZE, self.ANCHOR_SIZE)
+        self.setPos(x, y)
+        self.setBrush(QBrush(QColor("#aaaaaa")))
+        self.setPen(QPen(QColor("#666666"), 1))
+        self.setFlags(
+            self.ItemIsMovable |
+            self.ItemIsSelectable |
+            self.ItemSendsGeometryChanges
+        )
+        self.setZValue(5)
+        self.setCursor(Qt.SizeAllCursor)
+        self.arrows = []
+
+    def shape(self):
+        """Wider hit area for easier clicking."""
+        path = QPainterPath()
+        hit = 16
+        half = hit / 2
+        path.addEllipse(-half, -half, hit, hit)
+        return path
+
+    def get_center(self):
+        return self.scenePos()
+
+    def get_connection_point(self, target_pos):
+        """Anchor is a single point, so connection point is the center."""
+        return self.scenePos()
+
+    def add_arrow(self, arrow):
+        if arrow not in self.arrows:
+            self.arrows.append(arrow)
+
+    def remove_arrow(self, arrow):
+        if arrow in self.arrows:
+            self.arrows.remove(arrow)
+
+    def itemChange(self, change, value):
+        if change == self.ItemPositionHasChanged:
+            for arrow in self.arrows:
+                arrow.update_position()
+        return super().itemChange(change, value)
+
+    def paint(self, painter, option, widget=None):
+        """Draw with highlight when selected."""
+        if self.isSelected():
+            self.setBrush(QBrush(QColor(74, 144, 217, 120)))
+            self.setPen(QPen(QColor("#4a90d9"), 1.5))
+        else:
+            self.setBrush(QBrush(QColor("#aaaaaa")))
+            self.setPen(QPen(QColor("#666666"), 1))
+        super().paint(painter, option, widget)
 
 
 class BendHandle(QGraphicsEllipseItem):
@@ -46,11 +140,10 @@ class BendHandle(QGraphicsEllipseItem):
         self.setBrush(QBrush(QColor("#4a90d9")))
         self.setPen(QPen(QColor("#2c3e50"), 1))
         self.setFlags(self.ItemIsMovable | self.ItemSendsGeometryChanges)
-        self.setZValue(10)  # Above arrows and shapes
+        self.setZValue(10)
         self.setCursor(Qt.SizeAllCursor)
 
     def itemChange(self, change, value):
-        """Update the parent arrow's bend point when this handle is dragged."""
         if change == self.ItemPositionHasChanged and self.arrow:
             if 0 <= self.index < len(self.arrow.bend_points):
                 self.arrow.bend_points[self.index] = QPointF(value)
@@ -76,11 +169,11 @@ LINE_STYLES = {
 
 
 class Arrow(QGraphicsPathItem):
-    """Arrow connecting two shapes with optional bend points for routing."""
+    """Arrow connecting two shapes or anchor points, with bend points and cap styles."""
 
     def __init__(self, start_shape, end_shape, bidirectional=False,
                  color="#333333", line_style='Solid', line_width=2,
-                 bend_points=None):
+                 bend_points=None, start_cap=None, end_cap=None):
         super().__init__()
 
         self.start_shape = start_shape
@@ -92,6 +185,11 @@ class Arrow(QGraphicsPathItem):
         self.label = None
         self.label_color = QColor("#333333")
         self.label_font_size = 9
+
+        # Cap styles: 'none', 'arrow', 'ball'
+        # If not specified, derive from bidirectional flag for backward compat
+        self.start_cap = start_cap if start_cap is not None else ('arrow' if bidirectional else 'none')
+        self.end_cap = end_cap if end_cap is not None else 'arrow'
 
         # Bend points in scene coordinates for segmented routing
         self.bend_points = []
@@ -109,12 +207,29 @@ class Arrow(QGraphicsPathItem):
         self.setFlags(self.ItemIsSelectable)
         self.setZValue(-1)
 
-        self.end_head = ArrowHead(self)
-        self.start_head = ArrowHead(self) if bidirectional else None
+        # Always create both heads; style controls visibility
+        self.end_head = ArrowHead(style=self.end_cap, parent=self)
+        self.start_head = ArrowHead(style=self.start_cap, parent=self)
 
         start_shape.add_arrow(self)
         end_shape.add_arrow(self)
 
+        self.update_position()
+
+    # ------------------------------------------------------------------
+    # Cap style management
+    # ------------------------------------------------------------------
+
+    def set_start_cap(self, style):
+        """Change the start endpoint cap style."""
+        self.start_cap = style
+        self.start_head.style = style
+        self.update_position()
+
+    def set_end_cap(self, style):
+        """Change the end endpoint cap style."""
+        self.end_cap = style
+        self.end_head.style = style
         self.update_position()
 
     # ------------------------------------------------------------------
@@ -126,7 +241,6 @@ class Arrow(QGraphicsPathItem):
         start_center = self.start_shape.get_center()
         end_center = self.end_shape.get_center()
 
-        # Aim connection point at first/last bend (not opposite shape center)
         start_target = self.bend_points[0] if self.bend_points else end_center
         end_target = self.bend_points[-1] if self.bend_points else start_center
 
@@ -170,7 +284,6 @@ class Arrow(QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def add_bend_point(self, scene_pos, segment_index=None):
-        """Insert a bend point at the clicked position on the closest segment."""
         if segment_index is None:
             segment_index = self._find_segment_index(scene_pos)
         self.bend_points.insert(segment_index, QPointF(scene_pos))
@@ -178,14 +291,12 @@ class Arrow(QGraphicsPathItem):
         self.update_position()
 
     def remove_bend_point(self, index):
-        """Remove a bend point by index."""
         if 0 <= index < len(self.bend_points):
             self.bend_points.pop(index)
             self._rebuild_bend_handles()
             self.update_position()
 
     def _rebuild_bend_handles(self):
-        """Remove old handles and create new ones for current bend points."""
         self._remove_bend_handles()
         scene = self.scene()
         if not scene:
@@ -196,19 +307,17 @@ class Arrow(QGraphicsPathItem):
             self._bend_handles.append(handle)
 
     def _remove_bend_handles(self):
-        """Remove all bend handles from the scene."""
         for handle in self._bend_handles:
-            handle.arrow = None  # Prevent callbacks during removal
+            handle.arrow = None
             try:
                 scene = handle.scene()
                 if scene:
                     scene.removeItem(handle)
             except RuntimeError:
-                pass  # Handle already deleted (e.g. by scene.clear())
+                pass
         self._bend_handles.clear()
 
     def _show_bend_handles(self):
-        """Show or create bend handles when arrow is selected."""
         if not self.bend_points:
             return
         if not self._bend_handles:
@@ -217,7 +326,6 @@ class Arrow(QGraphicsPathItem):
             handle.setVisible(True)
 
     def _hide_bend_handles(self):
-        """Hide bend handles when arrow is deselected."""
         for handle in self._bend_handles:
             try:
                 handle.setVisible(False)
@@ -279,7 +387,6 @@ class Arrow(QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def update_position(self):
-        """Rebuild the path and arrowheads from current positions and bends."""
         if not self.start_shape or not self.end_shape:
             return
 
@@ -292,25 +399,23 @@ class Arrow(QGraphicsPathItem):
             path.lineTo(p)
         self.setPath(path)
 
-        # End arrowhead uses last segment angle
+        # End cap
         last_seg = QLineF(points[-2], points[-1])
         end_angle = math.atan2(last_seg.dy(), last_seg.dx())
         self.end_head.update_position(points[-1], end_angle)
         self.end_head.set_color(self.arrow_color)
 
-        # Start arrowhead for bidirectional arrows uses first segment angle
-        if self.start_head:
-            first_seg = QLineF(points[1], points[0])
-            start_angle = math.atan2(first_seg.dy(), first_seg.dx())
-            self.start_head.update_position(points[0], start_angle)
-            self.start_head.set_color(self.arrow_color)
+        # Start cap
+        first_seg = QLineF(points[1], points[0])
+        start_angle = math.atan2(first_seg.dy(), first_seg.dx())
+        self.start_head.update_position(points[0], start_angle)
+        self.start_head.set_color(self.arrow_color)
 
-        # Sync bend handle positions (handles track the arrow, not vice versa here)
+        # Sync bend handle positions
         for i, handle in enumerate(self._bend_handles):
             if i < len(self.bend_points):
                 try:
                     if handle.scene():
-                        # Block signals to avoid feedback loop
                         handle.setFlag(handle.ItemSendsGeometryChanges, False)
                         handle.setPos(self.bend_points[i])
                         handle.setFlag(handle.ItemSendsGeometryChanges, True)
@@ -320,7 +425,6 @@ class Arrow(QGraphicsPathItem):
         self.center_label()
 
     def _update_pen(self):
-        """Rebuild the pen from current color, width, and style."""
         qt_style = LINE_STYLES.get(self.line_style, Qt.SolidLine)
         self.setPen(QPen(self.arrow_color, self.line_width, qt_style,
                          Qt.RoundCap, Qt.RoundJoin))
@@ -329,8 +433,7 @@ class Arrow(QGraphicsPathItem):
         self.arrow_color = QColor(color)
         self._update_pen()
         self.end_head.set_color(color)
-        if self.start_head:
-            self.start_head.set_color(color)
+        self.start_head.set_color(color)
 
     def set_line_style(self, style_name):
         self.line_style = style_name
@@ -341,7 +444,6 @@ class Arrow(QGraphicsPathItem):
         self._update_pen()
 
     def detach(self):
-        """Disconnect from shapes and clean up bend handles."""
         self._remove_bend_handles()
         if self.start_shape:
             self.start_shape.remove_arrow(self)

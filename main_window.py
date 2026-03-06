@@ -285,6 +285,7 @@ class MainWindow(QMainWindow):
         self.scene.status_message.connect(self.statusBar().showMessage)
         self.scene.shape_selected.connect(self._on_shape_selected)
         self.scene.text_selected.connect(self._on_text_selected)
+        self.scene.arrow_selected.connect(self._on_arrow_selected)
         
         self._init_toolbar()
         self.statusBar().showMessage("Double-click to add shapes | Click to select | Right-click to label | Delete to remove")
@@ -357,6 +358,25 @@ class MainWindow(QMainWindow):
         self.line_width_combo.setMaximumWidth(50)
         self.line_width_combo.currentTextChanged.connect(self._on_line_width_changed)
         arrow_tb.addWidget(self.line_width_combo)
+
+        # Endpoint cap style dropdowns
+        arrow_tb.addSeparator()
+        arrow_tb.addWidget(QLabel(" Start:"))
+        self.start_cap_combo = QComboBox()
+        self.start_cap_combo.addItems(["None", "Arrow", "Ball"])
+        self.start_cap_combo.setToolTip("Start endpoint style")
+        self.start_cap_combo.setMaximumWidth(70)
+        self.start_cap_combo.currentTextChanged.connect(self._on_start_cap_changed)
+        arrow_tb.addWidget(self.start_cap_combo)
+
+        arrow_tb.addWidget(QLabel(" End:"))
+        self.end_cap_combo = QComboBox()
+        self.end_cap_combo.addItems(["None", "Arrow", "Ball"])
+        self.end_cap_combo.setCurrentText("Arrow")
+        self.end_cap_combo.setToolTip("End endpoint style")
+        self.end_cap_combo.setMaximumWidth(70)
+        self.end_cap_combo.currentTextChanged.connect(self._on_end_cap_changed)
+        arrow_tb.addWidget(self.end_cap_combo)
 
         # --- Format toolbar ---
         fmt_tb = QToolBar("Format")
@@ -558,6 +578,24 @@ class MainWindow(QMainWindow):
         """Handle underline toggle."""
         self.scene.set_text_settings(underline=checked)
 
+    def _on_arrow_selected(self, arrow):
+        """Update arrow toolbar controls to reflect selected arrow's properties."""
+        self.line_style_combo.blockSignals(True)
+        self.line_style_combo.setCurrentText(arrow.line_style)
+        self.line_style_combo.blockSignals(False)
+
+        self.line_width_combo.blockSignals(True)
+        self.line_width_combo.setCurrentText(str(arrow.line_width))
+        self.line_width_combo.blockSignals(False)
+
+        self.start_cap_combo.blockSignals(True)
+        self.start_cap_combo.setCurrentText(arrow.start_cap.capitalize())
+        self.start_cap_combo.blockSignals(False)
+
+        self.end_cap_combo.blockSignals(True)
+        self.end_cap_combo.setCurrentText(arrow.end_cap.capitalize())
+        self.end_cap_combo.blockSignals(False)
+
     def _on_line_style_changed(self, style_name):
         """Apply line style to selected arrows."""
         from arrows import Arrow
@@ -572,6 +610,22 @@ class MainWindow(QMainWindow):
         for item in self.scene.selectedItems():
             if isinstance(item, Arrow):
                 item.set_line_width(width)
+
+    def _on_start_cap_changed(self, cap_name):
+        """Apply start cap style to selected arrows."""
+        from arrows import Arrow
+        style = cap_name.lower()
+        for item in self.scene.selectedItems():
+            if isinstance(item, Arrow):
+                item.set_start_cap(style)
+
+    def _on_end_cap_changed(self, cap_name):
+        """Apply end cap style to selected arrows."""
+        from arrows import Arrow
+        style = cap_name.lower()
+        for item in self.scene.selectedItems():
+            if isinstance(item, Arrow):
+                item.set_end_cap(style)
 
     def _show_help(self):
         """Show keyboard shortcuts and controls in a formatted popup."""
@@ -616,13 +670,15 @@ class MainWindow(QMainWindow):
             <tr><td>-</td><td>Layer down (send backward)</td></tr>
         </table>
 
-        <h3>Arrows &amp; Bend Points</h3>
+        <h3>Arrows &amp; Lines</h3>
         <table>
             <tr><th>Action</th><th>How</th></tr>
+            <tr><td>Free-standing line</td><td>Arrow tool → click empty space for start &amp; end</td></tr>
+            <tr><td>Connect to shape</td><td>Arrow tool → click shape for start/end</td></tr>
+            <tr><td>Endpoint style</td><td>Select arrow → Start/End dropdowns (None, Arrow, Ball)</td></tr>
             <tr><td>Add bend point</td><td>Double-click an arrow segment</td></tr>
             <tr><td>Move bend point</td><td>Drag the blue handle</td></tr>
             <tr><td>Remove bend point</td><td>Double-click handle, or right-click → Remove</td></tr>
-            <tr><td>Add via menu</td><td>Right-click arrow → Add Bend Point</td></tr>
         </table>
 
         <h3>File</h3>

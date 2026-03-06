@@ -11,7 +11,7 @@ from shapes import (
     DiagramTriangleLeft, DiagramTriangleRight,
     DiagramText,
 )
-from arrows import Arrow
+from arrows import Arrow, AnchorPoint
 
 # All geometric shape classes (excludes DiagramText which serializes differently)
 _GEO_SHAPES = (
@@ -21,8 +21,8 @@ _GEO_SHAPES = (
     DiagramTriangleLeft, DiagramTriangleRight,
 )
 
-# All shape classes including text
-_ALL_SHAPES = _GEO_SHAPES + (DiagramText,)
+# All shape classes including text and anchors
+_ALL_SHAPES = _GEO_SHAPES + (DiagramText, AnchorPoint)
 
 
 def _build_shape_constructors():
@@ -64,6 +64,11 @@ def _build_shape_constructors():
         underline=d.get('underline', False),
     )
 
+    # AnchorPoint for free-floating arrow endpoints
+    constructors['AnchorPoint'] = lambda d: AnchorPoint(
+        d.get('x', 0), d.get('y', 0),
+    )
+
     return constructors
 
 
@@ -72,10 +77,24 @@ class ExportManager:
     
     PADDING = 20
     PNG_SCALE = 2
-    
+
     def __init__(self, scene):
         self.scene = scene
-    
+
+    def _hide_anchors(self):
+        """Hide anchor points before export for clean output."""
+        self._hidden_anchors = []
+        for item in self.scene.items():
+            if isinstance(item, AnchorPoint) and item.isVisible():
+                item.setVisible(False)
+                self._hidden_anchors.append(item)
+
+    def _show_anchors(self):
+        """Restore anchor point visibility after export."""
+        for item in self._hidden_anchors:
+            item.setVisible(True)
+        self._hidden_anchors = []
+
     def _get_export_rect(self):
         """Get bounding rectangle of all items with padding."""
         items_rect = self.scene.itemsBoundingRect()
@@ -98,7 +117,19 @@ class ExportManager:
         
         # Serialize shapes
         for item in self.scene.items():
-            if isinstance(item, _GEO_SHAPES):
+            if isinstance(item, AnchorPoint):
+                shape_data = {
+                    'id': shape_id,
+                    'type': 'AnchorPoint',
+                    'x': item.pos().x(),
+                    'y': item.pos().y(),
+                    'z': item.zValue()
+                }
+                data['shapes'].append(shape_data)
+                shape_ids[item] = shape_id
+                shape_id += 1
+
+            elif isinstance(item, _GEO_SHAPES):
                 shape_data = {
                     'id': shape_id,
                     'type': item.__class__.__name__,
@@ -115,7 +146,7 @@ class ExportManager:
                 data['shapes'].append(shape_data)
                 shape_ids[item] = shape_id
                 shape_id += 1
-            
+
             elif isinstance(item, DiagramText):
                 shape_data = {
                     'id': shape_id,
@@ -149,6 +180,8 @@ class ExportManager:
                         'line_style': item.line_style,
                         'line_width': item.line_width,
                         'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
+                        'start_cap': item.start_cap,
+                        'end_cap': item.end_cap,
                     }
                     data['arrows'].append(arrow_data)
         
@@ -203,6 +236,8 @@ class ExportManager:
                     line_style=arrow_data.get('line_style', 'Solid'),
                     line_width=arrow_data.get('line_width', 2),
                     bend_points=arrow_data.get('bend_points', []),
+                    start_cap=arrow_data.get('start_cap'),
+                    end_cap=arrow_data.get('end_cap'),
                 )
                 self.scene.addItem(arrow)
                 
@@ -314,7 +349,8 @@ class ExportManager:
             filepath += '.svg'
         
         self.scene.clearSelection()
-        
+        self._hide_anchors()
+
         # Use same scaling approach as PNG for consistent rendering
         scale = self.PNG_SCALE
         width = int(export_rect.width() * scale)
@@ -343,10 +379,11 @@ class ExportManager:
         self.scene.render(painter, target_rect, export_rect)
         
         painter.end()
-        
+        self._show_anchors()
+
         QMessageBox.information(parent, "Export", f"Saved to {filepath}")
         return filepath
-    
+
     def export_png(self, parent=None):
         """Export scene to PNG file."""
         export_rect = self._get_export_rect()
@@ -365,22 +402,24 @@ class ExportManager:
             filepath += '.png'
         
         self.scene.clearSelection()
-        
+        self._hide_anchors()
+
         width = int(export_rect.width() * self.PNG_SCALE)
         height = int(export_rect.height() * self.PNG_SCALE)
         image = QImage(width, height, QImage.Format_ARGB32)
         image.fill(QColor("#f9f9f9"))
-        
+
         painter = QPainter()
         painter.begin(image)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.TextAntialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
-        
+
         target_rect = QRectF(0, 0, width, height)
         self.scene.render(painter, target_rect, export_rect)
-        
+
         painter.end()
+        self._show_anchors()
         
         image.save(filepath)
         

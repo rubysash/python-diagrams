@@ -9,7 +9,7 @@ from shapes import (
     DiagramTriangleLeft, DiagramTriangleRight,
     DiagramText,
 )
-from arrows import Arrow, BendHandle
+from arrows import Arrow, BendHandle, AnchorPoint
 from handles import ResizeHandle
 
 PASTE_OFFSET = 20
@@ -20,7 +20,7 @@ SHAPE_CLASSES = (
     DiagramDiamond, DiagramHexagon, DiagramOctagon,
     DiagramTriangle, DiagramTriangleInverted,
     DiagramTriangleLeft, DiagramTriangleRight,
-    DiagramText,
+    DiagramText, AnchorPoint,
 )
 
 # Map class names to factory functions for clipboard paste / JSON load
@@ -55,6 +55,7 @@ SHAPE_CONSTRUCTORS = {
         color=d.get('color', '#333333'),
         bold=d.get('bold', False),
         underline=d.get('underline', False)),
+    'AnchorPoint': lambda d: AnchorPoint(d['x'], d['y']),
 }
 
 
@@ -63,6 +64,7 @@ class DiagramScene(QGraphicsScene):
 
     shape_selected = pyqtSignal(object)
     text_selected = pyqtSignal(object)  # Signal for text selection with formatting info
+    arrow_selected = pyqtSignal(object)  # Signal to update arrow toolbar controls
     status_message = pyqtSignal(str)
 
     MODE_SELECT = "Select"
@@ -359,28 +361,36 @@ class DiagramScene(QGraphicsScene):
                 return
         
         if event.button() == Qt.LeftButton and self.current_mode in (self.MODE_ARROW, self.MODE_ARROW_BIDIR):
-            if shape:
-                if self._arrow_start_shape is None:
-                    self._arrow_start_shape = shape
-                    shape.setSelected(True)
-                    self.status_message.emit("Click destination shape")
-                elif shape != self._arrow_start_shape:
-                    bidirectional = (self.current_mode == self.MODE_ARROW_BIDIR)
-                    self.save_undo()
-                    new_arrow = Arrow(self._arrow_start_shape, shape, bidirectional,color=self.current_color.name())
-                    self.addItem(new_arrow)
-                    self._arrow_start_shape.setSelected(False)
-                    self._arrow_start_shape = None
-                    self.status_message.emit("Arrow created — double-click arrow to add bend points")
-                else:
-                    self._arrow_start_shape.setSelected(False)
-                    self._arrow_start_shape = None
-                    self.status_message.emit("Cancelled")
-            else:
-                if self._arrow_start_shape:
-                    self._arrow_start_shape.setSelected(False)
+            # Target is a shape/anchor under click, or create new anchor on empty space
+            target = shape
+
+            if self._arrow_start_shape is None:
+                # Starting a new arrow
+                if target is None:
+                    target = AnchorPoint(pos.x(), pos.y())
+                    self.addItem(target)
+                self._arrow_start_shape = target
+                target.setSelected(True)
+                self.status_message.emit("Click destination (shape or empty space)")
+            elif target == self._arrow_start_shape:
+                # Clicked same item — cancel
+                self._arrow_start_shape.setSelected(False)
                 self._arrow_start_shape = None
-                self.status_message.emit("Click a shape to start arrow")
+                self.status_message.emit("Cancelled")
+            else:
+                # Creating the arrow
+                if target is None:
+                    target = AnchorPoint(pos.x(), pos.y())
+                    self.addItem(target)
+                bidirectional = (self.current_mode == self.MODE_ARROW_BIDIR)
+                self.save_undo()
+                new_arrow = Arrow(
+                    self._arrow_start_shape, target, bidirectional,
+                    color=self.current_color.name())
+                self.addItem(new_arrow)
+                self._arrow_start_shape.setSelected(False)
+                self._arrow_start_shape = None
+                self.status_message.emit("Arrow created — double-click arrow to add bend points")
             return
         
         if event.button() == Qt.LeftButton:
@@ -409,6 +419,7 @@ class DiagramScene(QGraphicsScene):
                 else:
                     self.clearSelection()
                     arrow.setSelected(True)
+                self.arrow_selected.emit(arrow)
             else:
                 if not multi_select:
                     self.clearSelection()
@@ -462,10 +473,16 @@ class DiagramScene(QGraphicsScene):
                 item.setPos(new_pos)
 
     def _show_context_menu(self, event, shape):
-        """Show right-click context menu for a shape."""
+        """Show right-click context menu for a shape or anchor point."""
         menu = QMenu()
-        label_action = menu.addAction("Edit Label...")
-        menu.addSeparator()
+        is_anchor = isinstance(shape, AnchorPoint)
+
+        # Anchors don't have labels
+        label_action = None
+        if not is_anchor:
+            label_action = menu.addAction("Edit Label...")
+            menu.addSeparator()
+
         front_action = menu.addAction("Send to Front")
         forward_action = menu.addAction("Send Forward")
         backward_action = menu.addAction("Send Backward")
@@ -480,7 +497,9 @@ class DiagramScene(QGraphicsScene):
             return
 
         chosen = menu.exec_(screen_pos)
-        if chosen == label_action:
+        if chosen is None:
+            pass
+        elif chosen == label_action:
             self._add_label_to_shape(shape)
         elif chosen == front_action:
             self._send_to_front(shape)
@@ -669,6 +688,8 @@ class DiagramScene(QGraphicsScene):
                     'line_style': item.line_style,
                     'line_width': item.line_width,
                     'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
+                    'start_cap': item.start_cap,
+                    'end_cap': item.end_cap,
                 })
 
         return {'shapes': shape_list, 'arrows': arrow_list}
@@ -676,6 +697,14 @@ class DiagramScene(QGraphicsScene):
     @staticmethod
     def _serialize_shape(item, shape_id):
         """Return a dict representing a single shape."""
+        if isinstance(item, AnchorPoint):
+            return {
+                'id': shape_id,
+                'type': 'AnchorPoint',
+                'x': item.pos().x(),
+                'y': item.pos().y(),
+                'z': item.zValue(),
+            }
         if isinstance(item, DiagramText):
             return {
                 'id': shape_id,
@@ -744,7 +773,9 @@ class DiagramScene(QGraphicsScene):
                           color=arrow_data.get('color', '#333333'),
                           line_style=arrow_data.get('line_style', 'Solid'),
                           line_width=arrow_data.get('line_width', 2),
-                          bend_points=offset_bends)
+                          bend_points=offset_bends,
+                          start_cap=arrow_data.get('start_cap'),
+                          end_cap=arrow_data.get('end_cap'))
             self.addItem(arrow)
             if 'label_color' in arrow_data:
                 arrow.set_label_color(arrow_data['label_color'])
@@ -816,6 +847,8 @@ class DiagramScene(QGraphicsScene):
                     'line_style': item.line_style,
                     'line_width': item.line_width,
                     'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
+                    'start_cap': item.start_cap,
+                    'end_cap': item.end_cap,
                 })
         return {'shapes': shape_list, 'arrows': arrow_list}
 
