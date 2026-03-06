@@ -89,6 +89,10 @@ class DiagramScene(QGraphicsScene):
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
         self._clipboard = None
+        # Undo/redo stacks store full scene snapshots
+        self._undo_stack = []
+        self._redo_stack = []
+        self._max_undo = 10
         # Text settings
         self.text_settings = {
             'font_family': 'Arial',
@@ -200,6 +204,7 @@ class DiagramScene(QGraphicsScene):
         if self.get_shape_at(pos) is None:
             shape = self._create_shape(pos.x() - 50, pos.y() - 30)
             if shape:
+                self.save_undo()
                 self.addItem(shape)
                 self.status_message.emit(f"Created {self.current_mode}")
         
@@ -264,6 +269,7 @@ class DiagramScene(QGraphicsScene):
                     self.status_message.emit("Click destination shape")
                 elif shape != self._arrow_start_shape:
                     bidirectional = (self.current_mode == self.MODE_ARROW_BIDIR)
+                    self.save_undo()
                     new_arrow = Arrow(self._arrow_start_shape, shape, bidirectional,color=self.current_color.name())
                     self.addItem(new_arrow)
                     self._arrow_start_shape.setSelected(False)
@@ -314,6 +320,7 @@ class DiagramScene(QGraphicsScene):
             current_text = shape.label.text()
         text, ok = QInputDialog.getText(None, "Label", "Enter text:", text=current_text)
         if ok and text:
+            self.save_undo()
             # Set label color before adding label
             if hasattr(shape, 'set_label_color'):
                 shape.set_label_color(self.current_label_color)
@@ -334,6 +341,7 @@ class DiagramScene(QGraphicsScene):
             current_text = arrow.label.text()
         text, ok = QInputDialog.getText(None, "Arrow Label", "Enter label:", text=current_text)
         if ok and text:
+            self.save_undo()
             # Set label color before adding label
             if hasattr(arrow, 'set_label_color'):
                 arrow.set_label_color(self.current_label_color)
@@ -361,6 +369,10 @@ class DiagramScene(QGraphicsScene):
                 self._cut_selected()
             elif event.key() == Qt.Key_V:
                 self._paste_clipboard()
+            elif event.key() == Qt.Key_Z:
+                self.undo()
+            elif event.key() == Qt.Key_Y:
+                self.redo()
             else:
                 super().keyPressEvent(event)
         else:
@@ -494,7 +506,8 @@ class DiagramScene(QGraphicsScene):
             return
         self._clipboard = data
         count = len(data['shapes'])
-        self._delete_selected()
+        self.save_undo()
+        self._delete_selected(save_undo=False)
         self.status_message.emit(f"Cut {count} item(s)")
 
     def _paste_clipboard(self):
@@ -502,8 +515,78 @@ class DiagramScene(QGraphicsScene):
         if not self._clipboard:
             self.status_message.emit("Clipboard is empty")
             return
+        self.save_undo()
         count = self._paste_data(self._clipboard)
         self.status_message.emit(f"Pasted {count} item(s)")
+
+    # ------------------------------------------------------------------
+    # Undo / Redo (snapshot-based, max 10 levels)
+    # ------------------------------------------------------------------
+
+    def _snapshot(self):
+        """Serialize the entire scene to a dict for undo/redo storage."""
+        shapes = [i for i in self.items() if isinstance(i, SHAPE_CLASSES)]
+        shape_id_map = {}
+        shape_list = []
+        for idx, item in enumerate(shapes):
+            shape_id_map[item] = idx
+            shape_list.append(self._serialize_shape(item, idx))
+
+        arrow_list = []
+        for item in self.items():
+            if not isinstance(item, Arrow):
+                continue
+            if item.start_shape in shape_id_map and item.end_shape in shape_id_map:
+                arrow_list.append({
+                    'start_id': shape_id_map[item.start_shape],
+                    'end_id': shape_id_map[item.end_shape],
+                    'bidirectional': item.bidirectional,
+                    'color': item.arrow_color.name(),
+                    'label': item.label.text() if item.label else None,
+                    'label_color': item.label_color.name(),
+                    'label_font_size': item.label_font_size,
+                })
+        return {'shapes': shape_list, 'arrows': arrow_list}
+
+    def _restore_snapshot(self, data):
+        """Clear the scene and rebuild from a snapshot dict."""
+        self.clear()
+        self.setBackgroundBrush(QColor("#f9f9f9"))
+        self._arrow_start_shape = None
+        # Reuse paste logic with zero offset to recreate items in place
+        self._paste_data(data, offset_x=0, offset_y=0)
+        self.clearSelection()
+
+    def save_undo(self):
+        """Push current state onto the undo stack. Call before mutating actions."""
+        snapshot = self._snapshot()
+        self._undo_stack.append(snapshot)
+        if len(self._undo_stack) > self._max_undo:
+            self._undo_stack.pop(0)
+        # Any new action invalidates the redo history
+        self._redo_stack.clear()
+
+    def undo(self):
+        """Restore the previous scene state."""
+        if not self._undo_stack:
+            self.status_message.emit("Nothing to undo")
+            return
+        # Save current state to redo before restoring
+        self._redo_stack.append(self._snapshot())
+        snapshot = self._undo_stack.pop()
+        self._restore_snapshot(snapshot)
+        self.status_message.emit("Undo")
+
+    def redo(self):
+        """Re-apply the last undone action."""
+        if not self._redo_stack:
+            self.status_message.emit("Nothing to redo")
+            return
+        # Save current state to undo before restoring
+        self._undo_stack.append(self._snapshot())
+        snapshot = self._redo_stack.pop()
+        self._restore_snapshot(snapshot)
+        self.status_message.emit("Redo")
 
     def _change_z_order(self, delta):
         """Change z-order of selected items."""
@@ -511,7 +594,8 @@ class DiagramScene(QGraphicsScene):
         if not items:
             self.status_message.emit("Nothing selected")
             return
-        
+
+        self.save_undo()
         for item in items:
             current_z = item.zValue()
             item.setZValue(current_z + delta)
@@ -519,12 +603,14 @@ class DiagramScene(QGraphicsScene):
         direction = "up" if delta > 0 else "down"
         self.status_message.emit(f"Moved {len(items)} item(s) {direction} (z={items[0].zValue():.0f})")
     
-    def _delete_selected(self):
+    def _delete_selected(self, save_undo=True):
         items = self.selectedItems()
         if not items:
             self.status_message.emit("Nothing selected")
             return
-        
+
+        if save_undo:
+            self.save_undo()
         for item in items:
             if hasattr(item, 'arrows'):
                 for arrow in item.arrows[:]:
@@ -537,6 +623,7 @@ class DiagramScene(QGraphicsScene):
         self.status_message.emit(f"Deleted {len(items)} item(s)")
     
     def clear_all(self):
+        self.save_undo()
         self.clear()
         self.setBackgroundBrush(QColor("#f9f9f9"))
         self._arrow_start_shape = None
