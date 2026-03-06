@@ -416,12 +416,14 @@ class MainWindow(QMainWindow):
         self.addToolBar(file_tb)
 
         save_action = QAction("Save", self)
-        save_action.setToolTip("Save diagram to JSON")
+        save_action.setShortcut(QKeySequence("Ctrl+S"))
+        save_action.setToolTip("Save diagram to JSON (Ctrl+S)")
         save_action.triggered.connect(lambda: self.export_manager.export_json(self))
         file_tb.addAction(save_action)
 
         load_action = QAction("Load", self)
-        load_action.setToolTip("Load diagram from JSON (replaces current)")
+        load_action.setShortcut(QKeySequence("Ctrl+O"))
+        load_action.setToolTip("Load diagram from JSON (Ctrl+O)")
         load_action.triggered.connect(lambda: self.export_manager.load_json(self))
         file_tb.addAction(load_action)
 
