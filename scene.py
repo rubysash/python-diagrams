@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QGraphicsScene, QInputDialog
+from PyQt5.QtWidgets import QGraphicsScene, QInputDialog, QMenu
 from PyQt5.QtCore import Qt, pyqtSignal, QRectF
 from PyQt5.QtGui import QColor, QPen
 
@@ -303,10 +303,10 @@ class DiagramScene(QGraphicsScene):
         
         if event.button() == Qt.RightButton:
             if shape:
-                self._add_label_to_shape(shape)
+                self._show_context_menu(event, shape)
                 return
             elif arrow:
-                self._add_label_to_arrow(arrow)
+                self._show_arrow_context_menu(event, arrow)
                 return
         
         if event.button() == Qt.LeftButton and self.current_mode in (self.MODE_ARROW, self.MODE_ARROW_BIDIR):
@@ -369,6 +369,79 @@ class DiagramScene(QGraphicsScene):
                     snapped = self.snap_position(item.pos())
                     if snapped != item.pos():
                         item.setPos(snapped)
+
+    def _show_context_menu(self, event, shape):
+        """Show right-click context menu for a shape."""
+        menu = QMenu()
+        label_action = menu.addAction("Edit Label...")
+        menu.addSeparator()
+        front_action = menu.addAction("Send to Front")
+        forward_action = menu.addAction("Send Forward")
+        backward_action = menu.addAction("Send Backward")
+        back_action = menu.addAction("Send to Back")
+        menu.addSeparator()
+        delete_action = menu.addAction("Delete")
+
+        # Get screen position from the scene event
+        view = self.views()[0] if self.views() else None
+        screen_pos = view.mapToGlobal(view.mapFromScene(event.scenePos())) if view else None
+        if screen_pos is None:
+            return
+
+        chosen = menu.exec_(screen_pos)
+        if chosen == label_action:
+            self._add_label_to_shape(shape)
+        elif chosen == front_action:
+            self._send_to_front(shape)
+        elif chosen == forward_action:
+            self._change_z_for_item(shape, 1)
+        elif chosen == backward_action:
+            self._change_z_for_item(shape, -1)
+        elif chosen == back_action:
+            self._send_to_back(shape)
+        elif chosen == delete_action:
+            shape.setSelected(True)
+            self._delete_selected()
+
+    def _show_arrow_context_menu(self, event, arrow):
+        """Show right-click context menu for an arrow."""
+        menu = QMenu()
+        label_action = menu.addAction("Edit Label...")
+        menu.addSeparator()
+        delete_action = menu.addAction("Delete")
+
+        view = self.views()[0] if self.views() else None
+        screen_pos = view.mapToGlobal(view.mapFromScene(event.scenePos())) if view else None
+        if screen_pos is None:
+            return
+
+        chosen = menu.exec_(screen_pos)
+        if chosen == label_action:
+            self._add_label_to_arrow(arrow)
+        elif chosen == delete_action:
+            arrow.setSelected(True)
+            self._delete_selected()
+
+    def _send_to_front(self, item):
+        """Move item above all others."""
+        self.save_undo()
+        max_z = max((i.zValue() for i in self.items()), default=0)
+        item.setZValue(max_z + 1)
+        self.status_message.emit("Sent to front")
+
+    def _send_to_back(self, item):
+        """Move item below all others."""
+        self.save_undo()
+        min_z = min((i.zValue() for i in self.items()), default=0)
+        item.setZValue(min_z - 1)
+        self.status_message.emit("Sent to back")
+
+    def _change_z_for_item(self, item, delta):
+        """Nudge a single item's z-order."""
+        self.save_undo()
+        item.setZValue(item.zValue() + delta)
+        direction = "forward" if delta > 0 else "backward"
+        self.status_message.emit(f"Sent {direction}")
 
     def _add_label_to_shape(self, shape):
         current_text = ""
