@@ -289,16 +289,17 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Double-click to add shapes | Click to select | Right-click to label | Delete to remove")
     
     def _init_toolbar(self):
-        toolbar = QToolBar("Tools")
-        toolbar.setMovable(False)
-        toolbar.setIconSize(QSize(24, 24))
-        self.addToolBar(toolbar)
-        
+        icon_size = QSize(24, 24)
         self.tool_group = QActionGroup(self)
         self.tool_group.setExclusive(True)
-        
-        # Shape tools: (mode, tooltip, draw_func, shortcut_key or None)
-        tools = [
+        self._tool_actions = {}  # mode -> QAction for shortcut lookup
+
+        # --- Shapes toolbar ---
+        shapes_tb = QToolBar("Shapes")
+        shapes_tb.setIconSize(icon_size)
+        self.addToolBar(shapes_tb)
+
+        shape_tools = [
             (DiagramScene.MODE_SELECT, "Select", draw_select, "V"),
             (DiagramScene.MODE_RECTANGLE, "Rectangle", draw_rectangle, "R"),
             (DiagramScene.MODE_SQUARE, "Square", draw_square, "S"),
@@ -307,78 +308,70 @@ class MainWindow(QMainWindow):
             (DiagramScene.MODE_DIAMOND, "Diamond", draw_diamond, "D"),
             (DiagramScene.MODE_HEXAGON, "Hexagon", draw_hexagon, "H"),
             (DiagramScene.MODE_OCTAGON, "Octagon", draw_octagon, "G"),
+            (DiagramScene.MODE_TEXT, "Text Label", draw_text, "X"),
+        ]
+        self._add_tool_actions(shapes_tb, shape_tools,
+                               default_mode=DiagramScene.MODE_RECTANGLE)
+
+        # --- Triangles toolbar ---
+        tri_tb = QToolBar("Triangles")
+        tri_tb.setIconSize(icon_size)
+        self.addToolBar(tri_tb)
+
+        tri_tools = [
             (DiagramScene.MODE_TRIANGLE, "Triangle (Up)", draw_triangle, "T"),
             (DiagramScene.MODE_TRIANGLE_INVERTED, "Triangle (Down)", draw_triangle_inverted, None),
             (DiagramScene.MODE_TRIANGLE_LEFT, "Triangle (Left)", draw_triangle_left, None),
             (DiagramScene.MODE_TRIANGLE_RIGHT, "Triangle (Right)", draw_triangle_right, None),
-            (DiagramScene.MODE_TEXT, "Text Label", draw_text, "X"),
+        ]
+        self._add_tool_actions(tri_tb, tri_tools)
+
+        # --- Arrows toolbar ---
+        arrow_tb = QToolBar("Arrows")
+        arrow_tb.setIconSize(icon_size)
+        self.addToolBar(arrow_tb)
+
+        arrow_tools = [
             (DiagramScene.MODE_ARROW, "Arrow", draw_arrow, "A"),
             (DiagramScene.MODE_ARROW_BIDIR, "Two-way Arrow", draw_arrow_bidir, "W"),
         ]
+        self._add_tool_actions(arrow_tb, arrow_tools)
 
-        self._tool_actions = {}  # mode -> QAction for shortcut lookup
+        # --- Format toolbar ---
+        fmt_tb = QToolBar("Format")
+        fmt_tb.setIconSize(icon_size)
+        self.addToolBar(fmt_tb)
 
-        for mode, tooltip, draw_func, shortcut in tools:
-            icon = create_icon(draw_func)
-            action = QAction(icon, "", self)
-            action.setCheckable(True)
-            # Show shortcut in tooltip if one exists
-            tip = f"{tooltip} ({shortcut})" if shortcut else tooltip
-            action.setToolTip(tip)
-            action.triggered.connect(lambda checked, m=mode: self.scene.set_mode(m))
-            self.tool_group.addAction(action)
-            toolbar.addAction(action)
-            self._tool_actions[mode] = action
-
-            if mode == DiagramScene.MODE_RECTANGLE:
-                action.setChecked(True)
-
-            # Bind keyboard shortcut
-            if shortcut:
-                sc = QShortcut(QKeySequence(shortcut), self)
-                sc.activated.connect(
-                    lambda m=mode: self._activate_tool(m))
-
-            # Add separator after text tool (before arrows)
-            if mode == DiagramScene.MODE_TEXT:
-                toolbar.addSeparator()
-        
-        toolbar.addSeparator()
-        
-        # Color picker for shapes
-        toolbar.addWidget(QLabel(" Fill:"))
+        fmt_tb.addWidget(QLabel(" Fill:"))
         self.color_button = ColorButton()
         self.color_button.setToolTip("Shape fill color")
         self.color_button.clicked.connect(self._pick_color)
-        toolbar.addWidget(self.color_button)
-        
-        # Color picker for labels
-        toolbar.addWidget(QLabel(" Label:"))
+        fmt_tb.addWidget(self.color_button)
+
+        fmt_tb.addWidget(QLabel(" Label:"))
         self.label_color_button = ColorButton(color="#333333")
         self.label_color_button.setToolTip("Label text color (right-click to add label)")
         self.label_color_button.clicked.connect(self._pick_label_color)
-        toolbar.addWidget(self.label_color_button)
-        
-        toolbar.addSeparator()
-        
-        # Text formatting controls
-        toolbar.addWidget(QLabel(" Font:"))
+        fmt_tb.addWidget(self.label_color_button)
+
+        fmt_tb.addSeparator()
+
+        fmt_tb.addWidget(QLabel(" Font:"))
         self.font_combo = QFontComboBox()
         self.font_combo.setCurrentFont(QFont("Arial"))
         self.font_combo.setMaximumWidth(150)
         self.font_combo.setToolTip("Font family")
         self.font_combo.currentFontChanged.connect(self._on_font_changed)
-        toolbar.addWidget(self.font_combo)
-        
-        toolbar.addWidget(QLabel(" Size:"))
+        fmt_tb.addWidget(self.font_combo)
+
+        fmt_tb.addWidget(QLabel(" Size:"))
         self.size_spin = QSpinBox()
         self.size_spin.setRange(6, 72)
         self.size_spin.setValue(14)
         self.size_spin.setToolTip("Font size")
         self.size_spin.valueChanged.connect(self._on_size_changed)
-        toolbar.addWidget(self.size_spin)
-        
-        # Bold button
+        fmt_tb.addWidget(self.size_spin)
+
         self.bold_action = QAction("B", self)
         self.bold_action.setCheckable(True)
         self.bold_action.setToolTip("Bold")
@@ -386,9 +379,8 @@ class MainWindow(QMainWindow):
         font.setBold(True)
         self.bold_action.setFont(font)
         self.bold_action.triggered.connect(self._on_bold_changed)
-        toolbar.addAction(self.bold_action)
-        
-        # Underline button
+        fmt_tb.addAction(self.bold_action)
+
         self.underline_action = QAction("U", self)
         self.underline_action.setCheckable(True)
         self.underline_action.setToolTip("Underline")
@@ -396,40 +388,61 @@ class MainWindow(QMainWindow):
         font.setUnderline(True)
         self.underline_action.setFont(font)
         self.underline_action.triggered.connect(self._on_underline_changed)
-        toolbar.addAction(self.underline_action)
-        
-        toolbar.addSeparator()
-        
-        # Save/Load buttons
+        fmt_tb.addAction(self.underline_action)
+
+        # --- File toolbar ---
+        file_tb = QToolBar("File")
+        file_tb.setIconSize(icon_size)
+        self.addToolBar(file_tb)
+
         save_action = QAction("Save", self)
         save_action.setToolTip("Save diagram to JSON")
         save_action.triggered.connect(lambda: self.export_manager.export_json(self))
-        toolbar.addAction(save_action)
-        
+        file_tb.addAction(save_action)
+
         load_action = QAction("Load", self)
         load_action.setToolTip("Load diagram from JSON")
         load_action.triggered.connect(lambda: self.export_manager.load_json(self))
-        toolbar.addAction(load_action)
-        
-        toolbar.addSeparator()
-        
-        # Export buttons
+        file_tb.addAction(load_action)
+
+        file_tb.addSeparator()
+
         export_svg = QAction("SVG", self)
         export_svg.setToolTip("Export to SVG")
         export_svg.triggered.connect(lambda: self.export_manager.export_svg(self))
-        toolbar.addAction(export_svg)
-        
+        file_tb.addAction(export_svg)
+
         export_png = QAction("PNG", self)
         export_png.setToolTip("Export to PNG")
         export_png.triggered.connect(lambda: self.export_manager.export_png(self))
-        toolbar.addAction(export_png)
-        
-        toolbar.addSeparator()
-        
+        file_tb.addAction(export_png)
+
+        file_tb.addSeparator()
+
         clear_action = QAction("Clear", self)
         clear_action.setToolTip("Clear all")
         clear_action.triggered.connect(self.scene.clear_all)
-        toolbar.addAction(clear_action)
+        file_tb.addAction(clear_action)
+
+    def _add_tool_actions(self, toolbar, tools, default_mode=None):
+        """Add checkable tool actions to a toolbar with optional shortcuts."""
+        for mode, tooltip, draw_func, shortcut in tools:
+            icon = create_icon(draw_func)
+            action = QAction(icon, "", self)
+            action.setCheckable(True)
+            tip = f"{tooltip} ({shortcut})" if shortcut else tooltip
+            action.setToolTip(tip)
+            action.triggered.connect(lambda checked, m=mode: self.scene.set_mode(m))
+            self.tool_group.addAction(action)
+            toolbar.addAction(action)
+            self._tool_actions[mode] = action
+
+            if mode == default_mode:
+                action.setChecked(True)
+
+            if shortcut:
+                sc = QShortcut(QKeySequence(shortcut), self)
+                sc.activated.connect(lambda m=mode: self._activate_tool(m))
     
     def _activate_tool(self, mode):
         """Switch to a tool mode via keyboard shortcut."""
