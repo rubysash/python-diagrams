@@ -101,6 +101,9 @@ class DiagramScene(QGraphicsScene):
         self._undo_stack = []
         self._redo_stack = []
         self._max_undo = 10
+        # Default cap styles for new arrows (synced from toolbar combos)
+        self.current_start_cap = 'none'
+        self.current_end_cap = 'arrow'
         # Text settings
         self.text_settings = {
             'font_family': 'Arial',
@@ -360,7 +363,7 @@ class DiagramScene(QGraphicsScene):
                 self._show_arrow_context_menu(event, arrow)
                 return
         
-        if event.button() == Qt.LeftButton and self.current_mode in (self.MODE_ARROW, self.MODE_ARROW_BIDIR):
+        if event.button() == Qt.LeftButton and self.current_mode in (self.MODE_ARROW,):
             # Target is a shape/anchor under click, or create new anchor on empty space
             target = shape
 
@@ -382,11 +385,12 @@ class DiagramScene(QGraphicsScene):
                 if target is None:
                     target = AnchorPoint(pos.x(), pos.y())
                     self.addItem(target)
-                bidirectional = (self.current_mode == self.MODE_ARROW_BIDIR)
                 self.save_undo()
                 new_arrow = Arrow(
-                    self._arrow_start_shape, target, bidirectional,
-                    color=self.current_color.name())
+                    self._arrow_start_shape, target,
+                    color=self.current_color.name(),
+                    start_cap=self.current_start_cap,
+                    end_cap=self.current_end_cap)
                 self.addItem(new_arrow)
                 self._arrow_start_shape.setSelected(False)
                 self._arrow_start_shape = None

@@ -334,8 +334,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(arrow_tb)
 
         arrow_tools = [
-            (DiagramScene.MODE_ARROW, "Arrow", draw_arrow, "A"),
-            (DiagramScene.MODE_ARROW_BIDIR, "Two-way Arrow", draw_arrow_bidir, "W"),
+            (DiagramScene.MODE_ARROW, "Line", draw_arrow, "A"),
         ]
         self._add_tool_actions(arrow_tb, arrow_tools)
 
@@ -612,17 +611,19 @@ class MainWindow(QMainWindow):
                 item.set_line_width(width)
 
     def _on_start_cap_changed(self, cap_name):
-        """Apply start cap style to selected arrows."""
+        """Apply start cap style to selected arrows and set default for new ones."""
         from arrows import Arrow
         style = cap_name.lower()
+        self.scene.current_start_cap = style
         for item in self.scene.selectedItems():
             if isinstance(item, Arrow):
                 item.set_start_cap(style)
 
     def _on_end_cap_changed(self, cap_name):
-        """Apply end cap style to selected arrows."""
+        """Apply end cap style to selected arrows and set default for new ones."""
         from arrows import Arrow
         style = cap_name.lower()
+        self.scene.current_end_cap = style
         for item in self.scene.selectedItems():
             if isinstance(item, Arrow):
                 item.set_end_cap(style)
@@ -651,8 +652,7 @@ class MainWindow(QMainWindow):
             <tr><td>G</td><td>Octagon</td></tr>
             <tr><td>T</td><td>Triangle (Up)</td></tr>
             <tr><td>X</td><td>Text Label</td></tr>
-            <tr><td>A</td><td>Arrow</td></tr>
-            <tr><td>W</td><td>Two-way Arrow</td></tr>
+            <tr><td>A</td><td>Line</td></tr>
         </table>
 
         <h3>Editing</h3>
@@ -673,8 +673,8 @@ class MainWindow(QMainWindow):
         <h3>Arrows &amp; Lines</h3>
         <table>
             <tr><th>Action</th><th>How</th></tr>
-            <tr><td>Free-standing line</td><td>Arrow tool → click empty space for start &amp; end</td></tr>
-            <tr><td>Connect to shape</td><td>Arrow tool → click shape for start/end</td></tr>
+            <tr><td>Free-standing line</td><td>Line tool → click empty space for start &amp; end</td></tr>
+            <tr><td>Connect to shape</td><td>Line tool → click shape for start/end</td></tr>
             <tr><td>Endpoint style</td><td>Select arrow → Start/End dropdowns (None, Arrow, Ball)</td></tr>
             <tr><td>Add bend point</td><td>Double-click an arrow segment</td></tr>
             <tr><td>Move bend point</td><td>Drag the blue handle</td></tr>

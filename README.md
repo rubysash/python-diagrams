@@ -24,8 +24,8 @@ python main.py
 | Resize | Drag corner handles |
 | Edit label | Double-click shape/arrow in Select mode, or F2, or right-click |
 | Right-click menu | Right-click shape for label, send forward/back, delete |
-| Connect shapes | Arrow tool → click source shape → click target shape |
-| Free-standing line | Arrow tool → click empty space → click empty space |
+| Connect shapes | Line tool → click source shape → click target shape |
+| Free-standing line | Line tool → click empty space → click empty space |
 | Arrow style | Select arrow → use Style/Width dropdowns in Arrows toolbar |
 | Endpoint caps | Select arrow → Start/End dropdowns: None, Arrow, Ball |
 | Add bend point | Double-click an arrow segment |
@@ -65,8 +65,7 @@ python main.py
 | G | Octagon |
 | T | Triangle (Up) |
 | X | Text Label |
-| A | Arrow |
-| W | Two-way Arrow |
+| A | Line |
 
 ## Color Pickers
 
