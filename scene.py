@@ -9,7 +9,7 @@ from shapes import (
     DiagramTriangleLeft, DiagramTriangleRight,
     DiagramText,
 )
-from arrows import Arrow
+from arrows import Arrow, BendHandle
 from handles import ResizeHandle
 
 PASTE_OFFSET = 20
@@ -244,18 +244,38 @@ class DiagramScene(QGraphicsScene):
             if isinstance(item, ResizeHandle):
                 return item
         return None
+
+    def get_bend_handle_at(self, pos):
+        """Check if there's a bend handle at the given position."""
+        items = self.items(pos)
+        for item in items:
+            if isinstance(item, BendHandle):
+                return item
+        return None
     
     def mouseDoubleClickEvent(self, event):
         pos = event.scenePos()
 
-        # In select mode, double-click a shape/arrow to edit its label
+        # In select mode, double-click a shape/arrow to edit or add bend
         if self.current_mode == self.MODE_SELECT:
+            # Double-click a bend handle to remove it
+            bend_handle = self.get_bend_handle_at(pos)
+            if bend_handle and bend_handle.arrow:
+                self.save_undo()
+                bend_handle.arrow.remove_bend_point(bend_handle.index)
+                self.status_message.emit("Bend point removed")
+                return
+
             shape = self.get_shape_at(pos)
             arrow = self.get_arrow_at(pos)
             if shape:
                 self._add_label_to_shape(shape)
             elif arrow:
-                self._add_label_to_arrow(arrow)
+                # Double-click arrow to add a bend point
+                self.save_undo()
+                arrow.add_bend_point(pos)
+                arrow.setSelected(True)
+                self.status_message.emit("Bend point added (double-click to remove)")
             else:
                 super().mouseDoubleClickEvent(event)
             return
@@ -308,13 +328,25 @@ class DiagramScene(QGraphicsScene):
     
     def mousePressEvent(self, event):
         pos = event.scenePos()
-        
+
+        # Check bend handles first - let them drag, keep parent arrow selected
+        bend_handle = self.get_bend_handle_at(pos)
+        if bend_handle and bend_handle.arrow:
+            if event.button() == Qt.RightButton:
+                self._show_bend_handle_context_menu(event, bend_handle)
+                return
+            # Let Qt handle the drag; re-select the arrow so handles stay visible
+            super().mousePressEvent(event)
+            if bend_handle.arrow:
+                bend_handle.arrow.setSelected(True)
+            return
+
         # Check if clicking on a resize handle first - let it handle its own events
         handle = self.get_handle_at(pos)
         if handle and handle.isVisible():
             super().mousePressEvent(event)
             return
-        
+
         shape = self.get_shape_at(pos)
         arrow = self.get_arrow_at(pos)
         
@@ -407,6 +439,12 @@ class DiagramScene(QGraphicsScene):
                     snapped = self.snap_position(item.pos())
                     if snapped != item.pos():
                         item.setPos(snapped)
+            # Snap visible bend handles too
+            for item in self.items():
+                if isinstance(item, BendHandle) and item.isVisible():
+                    snapped = self.snap_position(item.pos())
+                    if snapped != item.pos():
+                        item.setPos(snapped)
 
     def _save_move_undo(self, start_positions):
         """Save undo by temporarily restoring pre-drag positions for snapshot."""
@@ -460,6 +498,7 @@ class DiagramScene(QGraphicsScene):
         """Show right-click context menu for an arrow."""
         menu = QMenu()
         label_action = menu.addAction("Edit Label...")
+        bend_action = menu.addAction("Add Bend Point")
         menu.addSeparator()
         delete_action = menu.addAction("Delete")
 
@@ -471,9 +510,30 @@ class DiagramScene(QGraphicsScene):
         chosen = menu.exec_(screen_pos)
         if chosen == label_action:
             self._add_label_to_arrow(arrow)
+        elif chosen == bend_action:
+            self.save_undo()
+            arrow.add_bend_point(event.scenePos())
+            arrow.setSelected(True)
+            self.status_message.emit("Bend point added")
         elif chosen == delete_action:
             arrow.setSelected(True)
             self._delete_selected()
+
+    def _show_bend_handle_context_menu(self, event, handle):
+        """Show right-click context menu for a bend handle."""
+        menu = QMenu()
+        remove_action = menu.addAction("Remove Bend Point")
+
+        view = self.views()[0] if self.views() else None
+        screen_pos = view.mapToGlobal(view.mapFromScene(event.scenePos())) if view else None
+        if screen_pos is None:
+            return
+
+        chosen = menu.exec_(screen_pos)
+        if chosen == remove_action:
+            self.save_undo()
+            handle.arrow.remove_bend_point(handle.index)
+            self.status_message.emit("Bend point removed")
 
     def _send_to_front(self, item):
         """Move item above all others."""
@@ -608,6 +668,7 @@ class DiagramScene(QGraphicsScene):
                     'label_font_size': item.label_font_size,
                     'line_style': item.line_style,
                     'line_width': item.line_width,
+                    'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
                 })
 
         return {'shapes': shape_list, 'arrows': arrow_list}
@@ -674,11 +735,16 @@ class DiagramScene(QGraphicsScene):
             end = shape_map.get(arrow_data['end_id'])
             if start is None or end is None:
                 continue
+            # Offset bend points along with shapes
+            raw_bends = arrow_data.get('bend_points', [])
+            offset_bends = [{'x': bp['x'] + offset_x, 'y': bp['y'] + offset_y}
+                            for bp in raw_bends]
             arrow = Arrow(start, end,
                           bidirectional=arrow_data.get('bidirectional', False),
                           color=arrow_data.get('color', '#333333'),
                           line_style=arrow_data.get('line_style', 'Solid'),
-                          line_width=arrow_data.get('line_width', 2))
+                          line_width=arrow_data.get('line_width', 2),
+                          bend_points=offset_bends)
             self.addItem(arrow)
             if 'label_color' in arrow_data:
                 arrow.set_label_color(arrow_data['label_color'])
@@ -749,6 +815,7 @@ class DiagramScene(QGraphicsScene):
                     'label_font_size': item.label_font_size,
                     'line_style': item.line_style,
                     'line_width': item.line_width,
+                    'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
                 })
         return {'shapes': shape_list, 'arrows': arrow_list}
 

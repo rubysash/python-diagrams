@@ -1,4 +1,4 @@
 # Application-wide configuration
 
 APP_NAME = "Diagram Builder"
-VERSION = "1.4.8"
+VERSION = "1.5.0"

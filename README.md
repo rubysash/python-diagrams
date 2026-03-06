@@ -26,6 +26,9 @@ python main.py
 | Right-click menu | Right-click shape for label, send forward/back, delete |
 | Connect | Arrow tool → click source → click target |
 | Arrow style | Select arrow → use Style/Width dropdowns in Arrows toolbar |
+| Add bend point | Double-click an arrow segment |
+| Move bend point | Drag the blue bend handle |
+| Remove bend point | Double-click or right-click bend handle |
 | Multi-select | Ctrl+Click or Shift+Click items |
 | Box select | Drag on empty canvas (rubber band) |
 | Additive box select | Shift+drag to add to existing selection |
@@ -103,7 +106,7 @@ python main.py
 - [ ] Snap to other shapes (guide lines)
 - [ ] Drag to create (click and drag to set shape size)
 - [x] Double-click shape to edit label inline
-- [ ] Arrow routing styles (straight, orthogonal, curved)
+- [x] Arrow routing styles (segmented lines with draggable bend points)
 - [x] Arrow line styles (dashed, dotted, thick, thin)
 - [ ] Shape border color and thickness separate from fill
 - [ ] Opacity/transparency control

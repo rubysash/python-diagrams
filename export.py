@@ -148,6 +148,7 @@ class ExportManager:
                         'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 9,
                         'line_style': item.line_style,
                         'line_width': item.line_width,
+                        'bend_points': [{'x': bp.x(), 'y': bp.y()} for bp in item.bend_points],
                     }
                     data['arrows'].append(arrow_data)
         
@@ -201,6 +202,7 @@ class ExportManager:
                     color=arrow_data.get('color', '#333333'),
                     line_style=arrow_data.get('line_style', 'Solid'),
                     line_width=arrow_data.get('line_width', 2),
+                    bend_points=arrow_data.get('bend_points', []),
                 )
                 self.scene.addItem(arrow)
                 
