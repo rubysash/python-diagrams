@@ -22,7 +22,8 @@ python main.py
 | Select | Click shape/arrow |
 | Move | Drag selected shape |
 | Resize | Drag corner handles |
-| Label | Right-click shape/arrow (uses selected label color) |
+| Label | Right-click shape/arrow → enter text (uses selected label color) |
+| Right-click menu | Right-click shape for label, send forward/back, delete |
 | Connect | Arrow tool → click source → click target |
 | Multi-select | Ctrl+Click or Shift+Click items |
 | Box select | Drag on empty canvas (rubber band) |
@@ -61,3 +62,29 @@ python main.py
 |--------|-------------|
 | SVG | Vector graphics (clean, no metadata) |
 | PNG | Raster image at 2x resolution |
+
+## TODO
+
+- [x] Grid overlay and snap-to-grid for alignment
+- [x] Mouse wheel zoom in/out
+- [x] Undo/Redo (Ctrl+Z / Ctrl+Y)
+- [x] Keyboard shortcuts per tool (R, S, O, C, D, H, G, T, A, V, etc.)
+- [x] Toolbar tabs/groups (Shapes, Triangles, Arrows, Formatting, File)
+- [x] Import prebuilt shapes from JSON without clearing canvas
+- [ ] Align selected items (left/right/top/bottom/center)
+- [ ] Distribute evenly (equal spacing)
+- [ ] Snap to other shapes (guide lines)
+- [ ] Drag to create (click and drag to set shape size)
+- [ ] Double-click shape to edit label inline
+- [ ] Arrow routing styles (straight, orthogonal, curved)
+- [ ] Arrow line styles (dashed, dotted, thick, thin)
+- [ ] Shape border color and thickness separate from fill
+- [ ] Opacity/transparency control
+- [ ] Drop shadows toggle
+- [ ] Background color picker for canvas
+- [ ] Recent files list
+- [ ] Auto-save / recovery
+- [ ] Grouping (Ctrl+G) — treat multiple shapes as one unit
+- [ ] Lock items — prevent accidental moves
+- [ ] Zoom controls in toolbar (fit to page, zoom %)
+- [ ] Minimap for large diagrams
