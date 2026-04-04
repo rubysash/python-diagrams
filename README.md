@@ -4,8 +4,27 @@ A simple diagram tool built with PyQt5.
 
 ## Install
 
-```bash
-pip install PyQt5
+```
+git clone https://github.com/rubysash/python-diagrams.git
+```
+
+### Windows 
+```
+python -m venv python-diagrams
+cd python-diagrams
+scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On Linux, you would use:
+
+```
+python3 -m venv python-diagrams
+cd python-diagrams
+source bin\activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
 ```
 
 ## Run
