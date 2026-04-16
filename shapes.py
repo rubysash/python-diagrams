@@ -792,14 +792,24 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
         new_rect = new_rect.normalized()
         
         if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
-            # Update position and size
-            self.setPos(self.pos() + new_rect.topLeft())
+            # Block signals to prevent ItemPositionChange recursion during setPos
+            self.blockSignals(True)
+            
+            # If the top/left moved, we need to update the item's position in the scene
+            if new_rect.topLeft() != QPointF(0, 0):
+                diff = self.mapToScene(new_rect.topLeft()) - self.mapToScene(QPointF(0, 0))
+                self.setPos(self.pos() + diff)
+            
             self.shape_width = new_rect.width()
             self.shape_height = new_rect.height()
             
             self.update_pixmap()
+            self.blockSignals(False)
+            
             self.center_label()
             self.update_arrows()
+            # Manually update handles since signals were blocked
+            self.update_handles()
 
 
 class DiagramText(QGraphicsTextItem):
