@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsEllipseItem,
                              QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsSimpleTextItem, QGraphicsItem,
                              QGraphicsPixmapItem)
 from PyQt5.QtCore import Qt, QPointF, QRectF
-from PyQt5.QtGui import QPolygonF, QColor, QPen, QBrush, QFont
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QBrush, QFont, QPixmap, QPainter
 
 from handles import ResizeHandle
 
