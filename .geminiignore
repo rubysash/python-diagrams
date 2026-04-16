@@ -1,0 +1,38 @@
+# Environment & Dependencies
+Lib/
+Scripts/
+Include/
+share/
+pyvenv.cfg
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+node_modules/
+.venv/
+env/
+venv/
+
+# Large Binary & Data Files (Diagram Artifacts)
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.json
+*.pdf
+screenshot.png
+
+# IDE & OS
+.vscode/
+.idea/
+.claudeignore
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Environment & Logs
+.env
+*.log
