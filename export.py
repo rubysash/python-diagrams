@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtCore import QRectF, QSize
 from PyQt5.QtGui import QPainter, QImage, QColor
@@ -9,7 +10,7 @@ from shapes import (
     DiagramDiamond, DiagramHexagon, DiagramOctagon,
     DiagramTriangle, DiagramTriangleInverted,
     DiagramTriangleLeft, DiagramTriangleRight,
-    DiagramText,
+    DiagramText, DiagramImage,
 )
 from arrows import Arrow, AnchorPoint
 
@@ -21,8 +22,8 @@ _GEO_SHAPES = (
     DiagramTriangleLeft, DiagramTriangleRight,
 )
 
-# All shape classes including text and anchors
-_ALL_SHAPES = _GEO_SHAPES + (DiagramText, AnchorPoint)
+# All shape classes including text, images, and anchors
+_ALL_SHAPES = _GEO_SHAPES + (DiagramText, DiagramImage, AnchorPoint)
 
 
 def _build_shape_constructors():
@@ -67,6 +68,14 @@ def _build_shape_constructors():
     # AnchorPoint for free-floating arrow endpoints
     constructors['AnchorPoint'] = lambda d: AnchorPoint(
         d.get('x', 0), d.get('y', 0),
+    )
+
+    # DiagramImage for imported pictures
+    constructors['DiagramImage'] = lambda d: DiagramImage(
+        d.get('x', 0), d.get('y', 0),
+        image_path=d.get('image_path'),
+        width=d.get('width', 100),
+        height=d.get('height', 100),
     )
 
     return constructors
@@ -141,6 +150,21 @@ class ExportManager:
                     'label': item.label.text() if item.label else None,
                     'label_color': item.label_color.name() if hasattr(item, 'label_color') else '#ffffff',
                     'label_font_size': item.label_font_size if hasattr(item, 'label_font_size') else 14,
+                    'z': item.zValue()
+                }
+                data['shapes'].append(shape_data)
+                shape_ids[item] = shape_id
+                shape_id += 1
+
+            elif isinstance(item, DiagramImage):
+                shape_data = {
+                    'id': shape_id,
+                    'type': 'DiagramImage',
+                    'x': item.pos().x(),
+                    'y': item.pos().y(),
+                    'width': item.shape_width,
+                    'height': item.shape_height,
+                    'image_path': Path(item.image_path).as_posix(),
                     'z': item.zValue()
                 }
                 data['shapes'].append(shape_data)
@@ -267,7 +291,7 @@ class ExportManager:
             return False
         
         filepath, _ = QFileDialog.getSaveFileName(
-            parent, "Save Diagram", "", "Diagram Files (*.json)"
+            parent, "Save Diagram", "diagrams", "Diagram Files (*.json)"
         )
         
         if not filepath:
@@ -287,7 +311,7 @@ class ExportManager:
     def load_json(self, parent=None):
         """Load scene from JSON file."""
         filepath, _ = QFileDialog.getOpenFileName(
-            parent, "Load Diagram", "", "Diagram Files (*.json)"
+            parent, "Load Diagram", "diagrams", "Diagram Files (*.json)"
         )
         
         if not filepath:
@@ -311,7 +335,7 @@ class ExportManager:
     def import_json(self, parent=None):
         """Import shapes from a JSON file into the current canvas (merge, no clear)."""
         filepath, _ = QFileDialog.getOpenFileName(
-            parent, "Import Diagram", "", "Diagram Files (*.json)"
+            parent, "Import Diagram", "diagrams", "Diagram Files (*.json)"
         )
 
         if not filepath:

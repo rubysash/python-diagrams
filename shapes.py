@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsEllipseItem, 
-                             QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsSimpleTextItem, QGraphicsItem)
+                             QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsSimpleTextItem, QGraphicsItem,
+                             QGraphicsPixmapItem)
 from PyQt5.QtCore import Qt, QPointF, QRectF
 from PyQt5.QtGui import QPolygonF, QColor, QPen, QBrush, QFont
 
@@ -705,6 +706,98 @@ class DiagramOctagon(QGraphicsPolygonItem, BaseShape):
             translated_poly = QPolygonF([p + offset for p in new_poly])
             self.setPolygon(translated_poly)
 
+            self.center_label()
+            self.update_arrows()
+
+
+class DiagramImage(QGraphicsPixmapItem, BaseShape):
+    """Image shape that can be moved, resized, and connected to."""
+
+    def __init__(self, x, y, image_path, width=100, height=100):
+        # BaseShape initialization logic
+        self.shape_width = width
+        self.shape_height = height
+        self.shape_color = QColor(Qt.transparent)
+        self.label = None
+        self.label_color = QColor("#333333")
+        self.label_font_size = 14
+        self.arrows = []
+        self._resizing = False
+        
+        # Initialize QGraphicsPixmapItem
+        super().__init__()
+        self.image_path = image_path
+        self.original_pixmap = QPixmap(image_path)
+        
+        self.setPos(x, y)
+        self.update_pixmap()
+        
+        self.setFlags(
+            QGraphicsItem.ItemIsMovable | 
+            QGraphicsItem.ItemIsSelectable | 
+            QGraphicsItem.ItemSendsGeometryChanges
+        )
+        
+        # Add resize handles
+        self.handles = []
+        for pos in [ResizeHandle.TOP_LEFT, ResizeHandle.TOP_RIGHT,
+                    ResizeHandle.BOTTOM_LEFT, ResizeHandle.BOTTOM_RIGHT]:
+            handle = ResizeHandle(self, pos)
+            self.handles.append(handle)
+        self.update_handles()
+
+    def update_pixmap(self):
+        """Scale the original pixmap to current dimensions."""
+        if not self.original_pixmap.isNull():
+            scaled = self.original_pixmap.scaled(
+                int(self.shape_width), int(self.shape_height),
+                Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+            )
+            self.setPixmap(scaled)
+
+    def boundingRect(self):
+        """Return the bounding rect of the image."""
+        return QRectF(0, 0, self.shape_width, self.shape_height)
+
+    def paint(self, painter, option, widget):
+        """Custom paint to ensure smooth scaling and proper clipping."""
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        super().paint(painter, option, widget)
+
+    def update_appearance(self):
+        """Override BaseShape.update_appearance which uses brushes."""
+        pass
+
+    def itemChange(self, change, value):
+        # Use BaseShape's helper for selection/position changes
+        self._on_item_change(change, value)
+        return super().itemChange(change, value)
+
+    def handle_resize(self, handle_pos, new_pos):
+        if not self._resizing:
+            return
+        rect = self.boundingRect()
+        
+        if handle_pos == ResizeHandle.TOP_LEFT:
+            new_rect = QRectF(new_pos, rect.bottomRight())
+        elif handle_pos == ResizeHandle.TOP_RIGHT:
+            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                             QPointF(new_pos.x(), rect.bottom()))
+        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                             QPointF(rect.right(), new_pos.y()))
+        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+            new_rect = QRectF(rect.topLeft(), new_pos)
+        
+        new_rect = new_rect.normalized()
+        
+        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+            # Update position and size
+            self.setPos(self.pos() + new_rect.topLeft())
+            self.shape_width = new_rect.width()
+            self.shape_height = new_rect.height()
+            
+            self.update_pixmap()
             self.center_label()
             self.update_arrows()
 

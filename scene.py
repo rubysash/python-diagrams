@@ -7,7 +7,7 @@ from shapes import (
     DiagramDiamond, DiagramHexagon, DiagramOctagon,
     DiagramTriangle, DiagramTriangleInverted,
     DiagramTriangleLeft, DiagramTriangleRight,
-    DiagramText,
+    DiagramText, DiagramImage,
 )
 from arrows import Arrow, BendHandle, AnchorPoint
 from handles import ResizeHandle
@@ -20,7 +20,7 @@ SHAPE_CLASSES = (
     DiagramDiamond, DiagramHexagon, DiagramOctagon,
     DiagramTriangle, DiagramTriangleInverted,
     DiagramTriangleLeft, DiagramTriangleRight,
-    DiagramText, AnchorPoint,
+    DiagramText, DiagramImage, AnchorPoint,
 )
 
 # Map class names to factory functions for clipboard paste / JSON load
@@ -55,6 +55,9 @@ SHAPE_CONSTRUCTORS = {
         color=d.get('color', '#333333'),
         bold=d.get('bold', False),
         underline=d.get('underline', False)),
+    'DiagramImage': lambda d: DiagramImage(
+        d['x'], d['y'], d.get('image_path'),
+        width=d.get('width', 100), height=d.get('height', 100)),
     'AnchorPoint': lambda d: AnchorPoint(d['x'], d['y']),
 }
 
@@ -80,6 +83,7 @@ class DiagramScene(QGraphicsScene):
     MODE_TRIANGLE_LEFT = "Triangle Left"
     MODE_TRIANGLE_RIGHT = "Triangle Right"
     MODE_TEXT = "Text"
+    MODE_IMAGE = "Image"
     MODE_ARROW = "Arrow"
     MODE_ARROW_BIDIR = "Two-Way"
 

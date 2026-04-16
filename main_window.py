@@ -1,3 +1,7 @@
+import json
+import shutil
+from pathlib import Path
+
 from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction,
                              QActionGroup, QColorDialog, QPushButton, QLabel,
                              QFontComboBox, QSpinBox, QComboBox, QWidget,
@@ -189,6 +193,23 @@ def draw_text(painter, size):
     # Draw T shape
     painter.drawLine(6, 6, 18, 6)   # Top horizontal
     painter.drawLine(12, 6, 12, 20)  # Vertical stem
+
+
+def draw_image(painter, size):
+    """Draw image/picture icon."""
+    painter.setBrush(Qt.NoBrush)
+    # Frame
+    painter.drawRect(4, 5, 16, 14)
+    # Mountain shapes
+    path = QPainterPath()
+    path.moveTo(4, 19)
+    path.lineTo(10, 11)
+    path.lineTo(15, 16)
+    path.lineTo(17, 13)
+    path.lineTo(20, 19)
+    painter.drawPath(path)
+    # Sun
+    painter.drawEllipse(14, 7, 3, 3)
 
 
 class ColorButton(QPushButton):
@@ -452,6 +473,11 @@ class MainWindow(QMainWindow):
         import_action.triggered.connect(lambda: self.export_manager.import_json(self))
         file_tb.addAction(import_action)
 
+        image_action = QAction(create_icon(draw_image), "Picture", self)
+        image_action.setToolTip("Import a picture as an object")
+        image_action.triggered.connect(self._import_image)
+        file_tb.addAction(image_action)
+
         file_tb.addSeparator()
 
         export_svg = QAction("SVG", self)
@@ -627,6 +653,46 @@ class MainWindow(QMainWindow):
         for item in self.scene.selectedItems():
             if isinstance(item, Arrow):
                 item.set_end_cap(style)
+
+    def _import_image(self):
+        """Import an image, copy it to the diagrams folder, and add it to the scene."""
+        from PyQt5.QtWidgets import QFileDialog, QMessageBox
+        from shapes import DiagramImage
+        
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Import Picture", "", 
+            "Image Files (*.png *.jpg *.jpeg *.bmp *.gif *.svg)"
+        )
+        
+        if not filepath:
+            return
+            
+        src_path = Path(filepath)
+        dest_dir = Path("diagrams")
+        dest_dir.mkdir(exist_ok=True)
+        dest_path = dest_dir / src_path.name
+        
+        try:
+            # Copy file to diagrams folder if it's not already there
+            if src_path.resolve() != dest_path.resolve():
+                shutil.copy2(src_path, dest_path)
+            
+            # Add to scene at center of view
+            view_rect = self.view.viewport().rect()
+            scene_center = self.view.mapToScene(view_rect.center())
+            
+            self.scene.save_undo()
+            image_item = DiagramImage(
+                scene_center.x() - 50, scene_center.y() - 50,
+                str(dest_path)
+            )
+            self.scene.addItem(image_item)
+            self.scene.clearSelection()
+            image_item.setSelected(True)
+            self.statusBar().showMessage(f"Imported image: {src_path.name}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to import image: {e}")
 
     def _show_help(self):
         """Show keyboard shortcuts and controls in a formatted popup."""
