@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QGraphicsRectItem, QGraphicsEllipseItem, 
                              QGraphicsPolygonItem, QGraphicsTextItem, QGraphicsSimpleTextItem, QGraphicsItem,
                              QGraphicsPixmapItem)
-from PyQt5.QtCore import Qt, QPointF, QRectF
+from PyQt5.QtCore import Qt, QPointF, QRectF, QSize
 from PyQt5.QtGui import QPolygonF, QColor, QPen, QBrush, QFont, QPixmap, QPainter
 
 from handles import ResizeHandle
@@ -730,6 +730,7 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
         self.original_pixmap = QPixmap(image_path)
         
         self.setPos(x, y)
+        self.setOffset(0, 0)
         self.update_pixmap()
         
         self.setFlags(
@@ -756,8 +757,9 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
             self.setPixmap(scaled)
 
     def boundingRect(self):
-        """Return the bounding rect of the image."""
-        return QRectF(0, 0, self.shape_width, self.shape_height)
+        """Return the bounding rect of the image, which includes the offset."""
+        return QRectF(self.offset().x(), self.offset().y(), 
+                     float(self.shape_width), float(self.shape_height))
 
     def paint(self, painter, option, widget):
         """Custom paint to ensure smooth scaling and proper clipping."""
@@ -774,42 +776,37 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
         return super().itemChange(change, value)
 
     def handle_resize(self, handle_pos, new_pos):
-        if not self._resizing or getattr(self, '_in_resize', False):
+        if not self._resizing:
             return
         
-        self._in_resize = True
-        try:
-            rect = self.boundingRect()
+        # Use a local rect calculation similar to other shapes
+        # The rect represents the bounds of the pixmap relative to item origin
+        current_offset = self.offset()
+        rect = QRectF(current_offset.x(), current_offset.y(), 
+                     self.shape_width, self.shape_height)
+        
+        if handle_pos == ResizeHandle.TOP_LEFT:
+            new_rect = QRectF(new_pos, rect.bottomRight())
+        elif handle_pos == ResizeHandle.TOP_RIGHT:
+            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                             QPointF(new_pos.x(), rect.bottom()))
+        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                             QPointF(rect.right(), new_pos.y()))
+        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+            new_rect = QRectF(rect.topLeft(), new_pos)
+        
+        new_rect = new_rect.normalized()
+        
+        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+            # Stable update: change offset and dimensions, but NOT item position
+            self.setOffset(new_rect.topLeft())
+            self.shape_width = new_rect.width()
+            self.shape_height = new_rect.height()
+            self.update_pixmap()
             
-            if handle_pos == ResizeHandle.TOP_LEFT:
-                new_rect = QRectF(new_pos, rect.bottomRight())
-            elif handle_pos == ResizeHandle.TOP_RIGHT:
-                new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
-                                 QPointF(new_pos.x(), rect.bottom()))
-            elif handle_pos == ResizeHandle.BOTTOM_LEFT:
-                new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
-                                 QPointF(rect.right(), new_pos.y()))
-            elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
-                new_rect = QRectF(rect.topLeft(), new_pos)
-            
-            new_rect = new_rect.normalized()
-            
-            if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
-                # If the top/left moved, we need to shift the item's position in the scene
-                # because we are changing its local origin.
-                if new_rect.topLeft() != QPointF(0, 0):
-                    # Move the item by the delta in parent coordinates
-                    self.setPos(self.mapToParent(new_rect.topLeft()))
-                
-                self.shape_width = new_rect.width()
-                self.shape_height = new_rect.height()
-                self.update_pixmap()
-                
-                self.center_label()
-                self.update_arrows()
-                self.update_handles()
-        finally:
-            self._in_resize = False
+            self.center_label()
+            self.update_arrows()
 
 
 class DiagramText(QGraphicsTextItem):

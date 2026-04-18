@@ -249,9 +249,13 @@ class DiagramView(QGraphicsView):
         self.setFocusPolicy(Qt.StrongFocus)
         self._pre_rubber_selection = set()
         self._current_zoom = 1.0
+        
+        # Set anchors for smooth zooming centered on mouse
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
 
     def wheelEvent(self, event):
-        """Zoom in/out with mouse wheel."""
+        """Zoom in/out with mouse wheel, centering on the mouse cursor."""
         if event.angleDelta().y() > 0:
             factor = self.ZOOM_FACTOR
         else:
@@ -263,7 +267,6 @@ class DiagramView(QGraphicsView):
             return
 
         self._current_zoom = new_zoom
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.scale(factor, factor)
 
     def mousePressEvent(self, event):
