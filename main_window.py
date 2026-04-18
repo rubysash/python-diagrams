@@ -777,7 +777,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(browser)
         dialog.exec_()
 
-        def _bundle_save(self):
+    def _bundle_save(self):
         """Bundle the diagram JSON and all referenced images into a timestamped folder."""
         # Generate timestamped folder name
         timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
@@ -808,7 +808,7 @@ class MainWindow(QMainWindow):
 
         return bundle_dir
 
-        def closeEvent(self, event):
+    def closeEvent(self, event):
         """Prompt to save changes before closing."""
         if self.scene.is_modified:
             reply = QMessageBox.question(
