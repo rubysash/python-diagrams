@@ -1,12 +1,13 @@
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QToolBar, QAction,
                              QActionGroup, QColorDialog, QPushButton, QLabel,
                              QFontComboBox, QSpinBox, QComboBox, QWidget,
                              QHBoxLayout, QShortcut, QDialog, QVBoxLayout,
-                             QTextBrowser)
+                             QTextBrowser, QMessageBox)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import (QPainter, QColor, QIcon, QPixmap, QPainterPath,
                           QPolygonF, QPen, QBrush, QFont, QKeySequence)
@@ -775,3 +776,59 @@ class MainWindow(QMainWindow):
         browser.setOpenExternalLinks(False)
         layout.addWidget(browser)
         dialog.exec_()
+
+        def _bundle_save(self):
+        """Bundle the diagram JSON and all referenced images into a timestamped folder."""
+        # Generate timestamped folder name
+        timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
+        bundle_dir = Path("diagrams") / timestamp
+        bundle_dir.mkdir(parents=True, exist_ok=True)
+
+        # Serialize the scene
+        data = self.export_manager.serialize_to_dict()
+
+        # Identify and copy images, updating their paths in the JSON data
+        for shape in data.get('shapes', []):
+            if shape.get('type') == 'DiagramImage':
+                old_path_str = shape.get('image_path')
+                if old_path_str:
+                    old_path = Path(old_path_str)
+                    if old_path.exists():
+                        # Copy to the bundle folder
+                        new_path = bundle_dir / old_path.name
+                        if old_path.resolve() != new_path.resolve():
+                            shutil.copy2(old_path, new_path)
+                        # Update the path in the JSON to be relative to the bundle
+                        shape['image_path'] = old_path.name
+
+        # Save the JSON file into the bundle folder
+        json_path = bundle_dir / "diagram.json"
+        with open(json_path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        return bundle_dir
+
+        def closeEvent(self, event):
+        """Prompt to save changes before closing."""
+        if self.scene.is_modified:
+            reply = QMessageBox.question(
+                self, 'Save Changes?',
+                "You have unsaved changes. Would you like to bundle and save your diagram before exiting?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Save
+            )
+
+            if reply == QMessageBox.Save:
+                try:
+                    bundle_dir = self._bundle_save()
+                    QMessageBox.information(self, "Saved", f"Diagram bundled and saved to:\n{bundle_dir}")
+                    event.accept()
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Failed to bundle save: {e}")
+                    event.ignore()
+            elif reply == QMessageBox.Discard:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()

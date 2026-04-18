@@ -774,42 +774,42 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
         return super().itemChange(change, value)
 
     def handle_resize(self, handle_pos, new_pos):
-        if not self._resizing:
+        if not self._resizing or getattr(self, '_in_resize', False):
             return
-        rect = self.boundingRect()
         
-        if handle_pos == ResizeHandle.TOP_LEFT:
-            new_rect = QRectF(new_pos, rect.bottomRight())
-        elif handle_pos == ResizeHandle.TOP_RIGHT:
-            new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
-                             QPointF(new_pos.x(), rect.bottom()))
-        elif handle_pos == ResizeHandle.BOTTOM_LEFT:
-            new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
-                             QPointF(rect.right(), new_pos.y()))
-        elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
-            new_rect = QRectF(rect.topLeft(), new_pos)
-        
-        new_rect = new_rect.normalized()
-        
-        if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
-            # Block signals to prevent ItemPositionChange recursion during setPos
-            self.blockSignals(True)
+        self._in_resize = True
+        try:
+            rect = self.boundingRect()
             
-            # If the top/left moved, we need to update the item's position in the scene
-            if new_rect.topLeft() != QPointF(0, 0):
-                diff = self.mapToScene(new_rect.topLeft()) - self.mapToScene(QPointF(0, 0))
-                self.setPos(self.pos() + diff)
+            if handle_pos == ResizeHandle.TOP_LEFT:
+                new_rect = QRectF(new_pos, rect.bottomRight())
+            elif handle_pos == ResizeHandle.TOP_RIGHT:
+                new_rect = QRectF(QPointF(rect.left(), new_pos.y()), 
+                                 QPointF(new_pos.x(), rect.bottom()))
+            elif handle_pos == ResizeHandle.BOTTOM_LEFT:
+                new_rect = QRectF(QPointF(new_pos.x(), rect.top()),
+                                 QPointF(rect.right(), new_pos.y()))
+            elif handle_pos == ResizeHandle.BOTTOM_RIGHT:
+                new_rect = QRectF(rect.topLeft(), new_pos)
             
-            self.shape_width = new_rect.width()
-            self.shape_height = new_rect.height()
+            new_rect = new_rect.normalized()
             
-            self.update_pixmap()
-            self.blockSignals(False)
-            
-            self.center_label()
-            self.update_arrows()
-            # Manually update handles since signals were blocked
-            self.update_handles()
+            if new_rect.width() >= self.MIN_WIDTH and new_rect.height() >= self.MIN_HEIGHT:
+                # If the top/left moved, we need to shift the item's position in the scene
+                # because we are changing its local origin.
+                if new_rect.topLeft() != QPointF(0, 0):
+                    # Move the item by the delta in parent coordinates
+                    self.setPos(self.mapToParent(new_rect.topLeft()))
+                
+                self.shape_width = new_rect.width()
+                self.shape_height = new_rect.height()
+                self.update_pixmap()
+                
+                self.center_label()
+                self.update_arrows()
+                self.update_handles()
+        finally:
+            self._in_resize = False
 
 
 class DiagramText(QGraphicsTextItem):

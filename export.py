@@ -282,6 +282,10 @@ class ExportManager:
         self.scene.setSceneRect(self.scene.sceneRect())
         self.scene.update()
     
+    def serialize_to_dict(self):
+        """Expose serialization logic as a dictionary."""
+        return self._serialize_scene()
+
     def export_json(self, parent=None):
         """Export scene to JSON file."""
         items = [item for item in self.scene.items()

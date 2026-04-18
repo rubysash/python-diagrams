@@ -116,6 +116,7 @@ class DiagramScene(QGraphicsScene):
             'bold': False,
             'underline': False
         }
+        self.is_modified = False
     
     def drawBackground(self, painter, rect):
         """Draw grid overlay when enabled."""
@@ -932,6 +933,7 @@ class DiagramScene(QGraphicsScene):
 
     def save_undo(self):
         """Push current state onto the undo stack. Call before mutating actions."""
+        self.is_modified = True
         snapshot = self._snapshot()
         self._undo_stack.append(snapshot)
         if len(self._undo_stack) > self._max_undo:
