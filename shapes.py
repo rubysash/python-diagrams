@@ -775,6 +775,12 @@ class DiagramImage(QGraphicsPixmapItem, BaseShape):
         self._on_item_change(change, value)
         return super().itemChange(change, value)
 
+    def update_image(self, new_path):
+        """Update the image source path and refresh the pixmap."""
+        self.image_path = new_path
+        self.original_pixmap = QPixmap(new_path)
+        self.update_pixmap()
+
     def handle_resize(self, handle_pos, new_pos):
         if not self._resizing:
             return

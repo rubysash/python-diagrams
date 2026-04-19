@@ -68,6 +68,7 @@ class DiagramScene(QGraphicsScene):
     shape_selected = pyqtSignal(object)
     text_selected = pyqtSignal(object)  # Signal for text selection with formatting info
     arrow_selected = pyqtSignal(object)  # Signal to update arrow toolbar controls
+    change_image_requested = pyqtSignal(object)  # Request main window to swap an image
     status_message = pyqtSignal(str)
 
     MODE_SELECT = "Select"
@@ -542,8 +543,11 @@ class DiagramScene(QGraphicsScene):
 
         # Anchors don't have labels
         label_action = None
+        change_image_action = None
         if not is_anchor:
             label_action = menu.addAction("Edit Label...")
+            if isinstance(shape, DiagramImage):
+                change_image_action = menu.addAction("Change Picture...")
             menu.addSeparator()
 
         front_action = menu.addAction("Send to Front")
@@ -564,6 +568,8 @@ class DiagramScene(QGraphicsScene):
             pass
         elif chosen == label_action:
             self._add_label_to_shape(shape)
+        elif chosen == change_image_action:
+            self.change_image_requested.emit(shape)
         elif chosen == front_action:
             self._send_to_front(shape)
         elif chosen == forward_action:

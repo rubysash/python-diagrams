@@ -65,10 +65,12 @@ python main.py
 | Clear selection | Press Escape |
 | Layer up | Select + press `+` or `=` |
 | Layer down | Select + press `-` |
-| Zoom in/out | Mouse wheel scroll |
+| Zoom in/out | Mouse wheel scroll (centered on cursor) |
 | Toggle grid | Click "Grid" button in File toolbar |
 | Toggle snap | Click "Snap" button in File toolbar |
 | Import shapes | Click "Import" to merge JSON into canvas |
+| Import Picture | Click "Picture" (mountain icon) in File toolbar |
+| Change Picture | Right-click image item → "Change Picture..." (keeps connections) |
 
 ## Keyboard Shortcuts
 
@@ -133,8 +135,8 @@ python main.py
 - [ ] Drop shadows toggle
 - [ ] Background color picker for canvas
 - [ ] Recent files list
-- [ ] Auto-save / recovery
+- [x] Auto-save / recovery (Bundled save on close)
 - [ ] Grouping (Ctrl+G) — treat multiple shapes as one unit
 - [ ] Lock items — prevent accidental moves
-- [ ] Zoom controls in toolbar (fit to page, zoom %)
+- [x] Zoom controls in toolbar (Precise mouse wheel zoom)
 - [ ] Minimap for large diagrams

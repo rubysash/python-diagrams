@@ -311,6 +311,7 @@ class MainWindow(QMainWindow):
         self.scene.shape_selected.connect(self._on_shape_selected)
         self.scene.text_selected.connect(self._on_text_selected)
         self.scene.arrow_selected.connect(self._on_arrow_selected)
+        self.scene.change_image_requested.connect(self._on_change_image)
         
         self._init_toolbar()
         self.statusBar().showMessage("Double-click to add shapes | Click to select | Right-click to label | Delete to remove")
@@ -697,6 +698,42 @@ class MainWindow(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import image: {e}")
+
+    def _on_change_image(self, image_item):
+        """Change the source image for an existing DiagramImage object."""
+        from PyQt5.QtWidgets import QFileDialog, QMessageBox
+        
+        filepath, _ = QFileDialog.getOpenFileName(
+            self, "Change Picture", "", 
+            "Image Files (*.png *.jpg *.jpeg *.bmp *.gif *.svg)"
+        )
+        
+        if not filepath:
+            return
+            
+        src_path = Path(filepath)
+        dest_dir = Path("diagrams")
+        dest_dir.mkdir(exist_ok=True)
+        
+        # We can either use the new name or overwrite the old one.
+        # To strictly "overwrite" as requested, we'd use the old filename,
+        # but swapping with a new file usually implies a new name is fine too.
+        # Let's copy the new file and update the path.
+        dest_path = dest_dir / src_path.name
+        
+        try:
+            self.scene.save_undo()
+            
+            # Copy file to diagrams folder
+            if src_path.resolve() != dest_path.resolve():
+                shutil.copy2(src_path, dest_path)
+            
+            # Update the item
+            image_item.update_image(str(dest_path))
+            self.statusBar().showMessage(f"Changed image to: {src_path.name}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to change image: {e}")
 
     def _show_help(self):
         """Show keyboard shortcuts and controls in a formatted popup."""
