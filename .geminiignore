@@ -17,6 +17,7 @@ env/
 venv/
 
 # Large Binary & Data Files (Diagram Artifacts)
+diagrams/
 *.png
 *.jpg
 *.jpeg

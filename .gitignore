@@ -28,3 +28,6 @@ Desktop.ini
 # Environment
 .env
 *.log
+
+# Diagrams and artifacts
+diagrams/
